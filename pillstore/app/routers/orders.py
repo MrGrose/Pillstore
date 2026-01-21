@@ -299,7 +299,6 @@ async def set_cart_quantity_api(product_id: int = Form(...), quantity: int = For
     if not product:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Товар не найден")
 
-    # **ОБРЕЗАЕМ ДО STOCK ПЕРЕД ВСЁМ**
     final_quantity = min(quantity, product.stock or 0)
     
     cart_result = await db.scalars(select(CartItemModel).where(

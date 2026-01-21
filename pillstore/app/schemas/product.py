@@ -1,15 +1,8 @@
 from decimal import Decimal
 from fastapi.exceptions import RequestValidationError
-from typing import Annotated, Any
+from typing import Annotated
 from fastapi import Form
-from pydantic import BaseModel, Field, ValidationError, ConfigDict, field_validator
-# from app.core.config import CATEGORIES
-
-
-# def validate_category_id(cls, v: Any) -> int:
-#     if not isinstance(v, int) or v not in CATEGORIES:
-#         raise ValueError(f"ID {v} неверный. Допустимые: {list(CATEGORIES.keys())}")
-#     return v
+from pydantic import BaseModel, Field, ValidationError, ConfigDict
 
 
 class ProductSchema(BaseModel):
@@ -31,13 +24,6 @@ class ProductCreate(BaseModel):
     url: str | None
     stock: int = Field(..., ge=0, description="Остаток на складе")
     category_id: int = Field(..., gt=0)  
-    
-    # @field_validator("category_id")
-    # @classmethod
-    # def check_category_id(cls, v: Any) -> int:
-    #     if v not in CATEGORIES:
-    #         raise ValueError(f"Категория ID={v} не существует. Выберите: {list(CATEGORIES)}")
-    #     return v
     
     @classmethod
     def as_form(

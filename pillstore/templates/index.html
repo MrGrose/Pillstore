@@ -4,7 +4,6 @@
 
 {% block content %}
 
-
 <section class="hero py-5 rounded-3 mb-5" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); color: white;">
         <div class="container text-center">
             <h1 class="display-4 fw-bold mb-4">Тут что то будет</h1>
@@ -17,66 +16,116 @@
                 </button>
             </form>
         </div>
-            </section>
-                <section class="py-0">
-                <div class="container">
-                    <div class="row mb-4">
-                        <div class="col-md-6">
-                            <div class="btn-group btn-group-sm flex-nowrap" style="max-width: 100%;" role="group">
-                                <a href="/products" 
-                                class="btn btn-primary {{ 'active-filter fw-bold' if not request.query_params.get('category_id') else '' }}">
-                                    Все
+</section>
+
+<section class="py-0">
+    <div class="container">
+        <div class="row mb-4">
+            {% set active_id = (active_category_id|int) if active_category_id else None %}
+            {% set active_cat = flat_tree|selectattr('id', 'equalto', active_id)|first if active_id else None %}
+            <div class="col-12 mb-2">
+                <div class="category-line d-flex flex-wrap gap-1">
+                    <a href="/products" class="btn btn-sm btn-primary {{ 'active-filter fw-bold' if not active_cat else '' }}">
+                        <i class="fas me-1"></i>Все
+                    </a>
+                    {% for cat in flat_tree if cat["parent_id"] is none %}
+                        <a href="{{ request.url.replace_query_params(category_id=cat['id']) }}"
+                        class="btn btn-sm {{ 'btn-success active-filter fw-bold' if active_cat and cat['id'] == active_cat['id'] else 'btn-outline-primary' }}">
+                        {{ cat["name"] }}
+                        </a>
+                    {% endfor %}
+                    <div class="ms-auto">
+                        <select class="form-select form-select-sm w-auto" style="max-width: 140px;" onchange="window.location.href = this.value;">
+                            {% for size in pagination.pagination_sizes %}
+                                <option value="{{ pagination.page_size_urls[size] }}" {% if size == pagination.page_size %}selected{% endif %}>{{ size }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+            </div>
+            {% if active_cat %}
+                {% set is_active_in_root = active_cat["parent_id"] is none %}
+                {# УРОВЕНЬ 1 #}
+                {% if active_cat["parent_id"] and not is_active_in_root %}
+                    {% set parent_cat = flat_tree|selectattr('id', 'equalto', active_cat["parent_id"])|first %}
+                        {% if parent_cat and parent_cat["parent_id"] is not none %}
+                            {% set parent_siblings = flat_tree|selectattr('parent_id', 'equalto', parent_cat["parent_id"])|list %}
+                            {% if parent_siblings %}
+                                <div class="col-12 mb-2">
+                                    <div class="d-flex flex-wrap gap-1">
+                                        {% for cat in parent_siblings %}
+                                            <a href="{{ request.url.replace_query_params(category_id=cat['id']) }}"
+                                            class="btn btn-sm {{ 'btn-success active-filter fw-bold' if cat['id'] == parent_cat['id'] else 'btn-outline-success' }}">
+                                            {{ cat["name"] }}
+                                            </a>
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                            {% endif %}
+                        {% endif %}
+                {% endif %}
+                {# УРОВЕНЬ 2 #}
+                {% if not is_active_in_root %}
+                    {% set active_siblings = flat_tree|selectattr('parent_id', 'equalto', active_cat["parent_id"] if active_cat["parent_id"] is not none else none)|list %}
+                    {% if active_siblings %}
+                        <div class="col-12 mb-2">
+                            <div class="d-flex flex-wrap gap-1">
+                                {% for cat in active_siblings %}
+                                <a href="{{ request.url.replace_query_params(category_id=cat['id']) }}"
+                                    class="btn btn-sm {{ 'btn-warning active-filter fw-bold' if cat['id'] == active_cat['id'] else 'btn-outline-warning' }}">
+                                    {{ cat["name"] }}
                                 </a>
-                                
-                                {% for cat in categories %}
-                                    <a href="{{ request.url.replace_query_params(category_id=cat.id) }}" 
-                                    class="btn btn-outline-primary {{ 'active-filter fw-bold' if request.query_params.get('category_id') == cat.id|string else '' }}"
-                                    style="{% if loop.index > 4 %}font-size: 0.8em;{% endif %}">
-                                        {{ cat.name }}
-                                    </a>
                                 {% endfor %}
                             </div>
                         </div>
-            <div class="col-md-6 text-end">
-            <select class="form-select d-inline w-auto" style="max-width: 200px;" onchange="window.location.href = this.value;">
-            {% for size in pagination.pagination_sizes %}
-                <option value="{{ pagination.page_size_urls[size] }}" {% if size == pagination.page_size %}selected{% endif %}>{{ size }}</option>
-            {% endfor %}
-            </select>
-            </div>
+                    {% endif %}
+                {% endif %}
+                {# УРОВЕНЬ 3 #}
+                {% set children = flat_tree|selectattr('parent_id', 'equalto', active_cat["id"])|list %}
+                {% if children %}
+                    <div class="col-12 mb-2">
+                        <div class="d-flex flex-wrap gap-1">
+                        {% for cat in children %}
+                            <a href="{{ request.url.replace_query_params(category_id=cat['id']) }}" 
+                            class="btn btn-sm btn-outline-success">
+                            {{ cat["name"] }}
+                            </a>
+                        {% endfor %}
+                        </div>
+                    </div>
+                {% endif %}
+            {% endif %}
         </div>
         <div class="row row-cols-1 row-cols-md-3 row-cols-lg-4 g-4">
-            {% for product in pagination.items %}
-            <div class="col">
-                {{ product.id }}
-                <div class="card h-100 shadow-sm d-flex flex-column">
-                    <img src="{{ product.image_url or 'https://via.placeholder.com/250x250/eee/999?text=' + product.name }}" 
-                        class="card-img-top flex-shrink-0" style="height: 300px; object-fit: cover;" alt="{{ product.brand }}, {{ product.name }}">
-                    <div class="card-body flex-grow-1 d-flex flex-column">
-                        <h6 class="card-title flex-grow-1">
-                            
-                            <a href="{{ url_for('product_detail', product_id=product.id) }}" class="text-decoration-none text-dark fw-bold">
-                                {{ product.brand }}, {{ product.name }}
-                            </a>
-                        </h6>
-                        <div class="d-flex justify-content-between align-items-end mt-auto">
-                            <span class="h5 text-primary mb-0">id={{ product.id }} Цена:{{ "%.2f"|format(product.price) }} ₽</span>
-                            <div class="cart-controls" data-product-id="{{ product.id }}">
-                                {% set qty = product.cart_qty or 0 %}
-                                {% if qty == 0 %}
-                                    <button class="btn btn-success btn-sm js-add-to-cart"><i class="fas fa-cart-plus"></i></button>
-                                {% else %}
-                                    <div class="btn-group btn-group-sm">
-                                        <button class="btn btn-outline-secondary js-decrease">−</button>
-                                        <span class="px-1 js-qty">{{ qty }}</span>
-                                        <button class="btn btn-outline-secondary js-increase">+</button>
-                                    </div>
-                                {% endif %}
+            {% for product in pagination.items  %}
+                <div class="col">
+                    <div class="card h-100 shadow-sm d-flex flex-column">
+                        <img src="{{ product.image_url or 'https://via.placeholder.com/250x250/eee/999?text=' + product.name }}" 
+                            class="card-img-top flex-shrink-0" style="height: 300px; object-fit: cover;" alt="{{ product.brand }}, {{ product.name }}">
+                        <div class="card-body flex-grow-1 d-flex flex-column">
+                            <h6 class="card-title flex-grow-1">
+                                <a href="{{ url_for('product_detail', product_id=product.id) }}" class="text-decoration-none text-dark fw-bold">
+                                    {{ product.brand }}, {{ product.name }}
+                                </a>
+                            </h6>
+                            <div class="d-flex justify-content-between align-items-end mt-auto">
+                                <span class="h5 text-primary mb-0">id={{ product.id }} Цена:{{ "%.2f"|format(product.price) }} ₽</span>
+                                <div class="cart-controls" data-product-id="{{ product.id }}">
+                                    {% set qty = product.cart_qty or 0 %}
+                                    {% if qty == 0 %}
+                                        <button class="btn btn-success btn-sm js-add-to-cart"><i class="fas fa-cart-plus"></i></button>
+                                    {% else %}
+                                        <div class="btn-group btn-group-sm">
+                                            <button class="btn btn-outline-secondary js-decrease">−</button>
+                                                <span class="px-1 js-qty">{{ qty }}</span>
+                                            <button class="btn btn-outline-secondary js-increase">+</button>
+                                        </div>
+                                    {% endif %}
+                                </div>
                             </div>
                         </div>
                     </div>
                 </div>
-            </div>
             {% endfor %}
         </div>
             {% if pagination.total_pages > 1 %}
@@ -90,7 +139,6 @@
                         <a class="page-link" href="{{ pagination.page_urls.prev_url }}">←</a>
                     </li>
                     {% endif %}
-                
                     {% for page_num, url in pagination.page_urls.page_urls.items() %}
                         {% if loop.index <= 5 or (page_num >= pagination.page - 1 and page_num <= pagination.page + 1) %}
                         <li class="page-item {{ 'active' if page_num == pagination.page else '' }}">
@@ -98,7 +146,6 @@
                         </li>
                         {% endif %}
                     {% endfor %}
-                    
                     {% if pagination.page < pagination.total_pages %}
                     <li class="page-item">
                         <a class="page-link" href="{{ pagination.page_urls.next_url }}">→</a>
@@ -109,7 +156,7 @@
                     {% endif %}
                 </ul>
             </nav>
-    {% endif %}
+        {% endif %}
     </div>
 </section>
     

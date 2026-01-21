@@ -19,6 +19,18 @@ class CategoriesSchema(BaseModel):
     name: str
     is_active: bool
     parent_id: int | None = None
-    # children: list['CategoriesSchema'] = []
     
     model_config = ConfigDict(from_attributes=True, arbitrary_types_allowed=True)
+
+
+class CategoryTreeOut(BaseModel):
+    id: int
+    name: str
+    parent_id: int | None = None
+    level: int = 0
+    path: list[int] = Field(default_factory=list)
+    is_active: bool
+    
+    children: list['CategoryTreeOut'] = Field(default_factory=list)
+    
+    model_config = ConfigDict(from_attributes=True, populate_by_name=False)

@@ -1,6 +1,5 @@
-from sqlalchemy import func, select
+from fastapi import Request
 from sqlalchemy.ext.asyncio import AsyncSession
-from fastapi import HTTPException, Request
 
 from app.models.cart_items import CartItem
 from app.models.users import User
@@ -9,18 +8,19 @@ from app.models.categories import Category
 
 from app.db_crud.cart_crud import CrudCart
 from app.db_crud.products_crud import CrudProduct
+from app.db_crud.category_crud import CrudCategory
 
 from app.schemas.product import ProductPagination
 from app.exceptions.products import ProductNotFoundError
 
-from app.models.associations import product_categories
-from sqlalchemy.orm import selectinload
+from app.schemas.category import CategoryTreeOut
 
 class ProductService:
     
     def __init__(self, session: AsyncSession):
         self.session = session
         self.crud = CrudProduct(session=session, model=Product)
+        self.cat = CrudCategory(session=session, model=Category)
     
     async def get_products_page(
         self, 
@@ -38,7 +38,7 @@ class ProductService:
             raise ProductNotFoundError(product_id)
         if user:
             await self.cart_qty_for_product(product_id, user, product)
-            product.available_stock = product.stock - getattr(product, 'cart_qty', 0)
+            product.available_stock = product.stock - getattr(product, "cart_qty", 0)
         else:
             product.available_stock = product.stock
         return product
@@ -47,53 +47,28 @@ class ProductService:
         cart_crud = CrudCart(self.session, model=CartItem)
         await cart_crud.cart_qty(user, product_id, product)
         
+    async def get_flat_tree(self) -> list[dict]:
+        categories = await self.cat.get_tree_categories()
+        all_cats: dict[int, CategoryTreeOut] = {
+            cat.id: CategoryTreeOut.model_validate(cat)
+            for cat in categories
+        }
+        for cat_id, cat in all_cats.items():
+            if cat.parent_id and cat.parent_id in all_cats:
+                parent = all_cats[cat.parent_id]
+                cat.level = parent.level + 1
+                cat.path = parent.path + [cat_id]
+                parent.children.append(cat)
         
-    async def get_categories_tree(self, db: AsyncSession):
-        # Корневые категории
-        root_categories = (await db.scalars(
-            select(Category)
-            .where(Category.parent_id.is_(None))
-            .order_by(Category.name)
-        )).all()
+        roots = [cat for cat in all_cats.values() if cat.parent_id is None]
         
-        # Функция для всех уровней
-        async def load_subs(cat):
-            subcats = (await db.scalars(
-                select(Category)
-                .where(Category.parent_id == cat.id)
-                .order_by(Category.name)
-            )).all()
-            for sub in subcats:
-                sub.product_count = await db.scalar(
-                    select(func.count(product_categories.c.product_id))
-                    .where(product_categories.c.category_id == sub.id)
-                )
-                # 🔥 РЕКУРСИЯ: загрузи внуков!
-                await load_subs(sub)
-            cat.subcategories = subcats
+        def flatten(node: CategoryTreeOut, result: list[dict]):
+            result.append(node.model_dump(mode="json"))
+            for child in node.children:
+                flatten(child, result)
         
-        # Корни
-        for cat in root_categories:
-            cat.product_count = await db.scalar(
-                select(func.count(product_categories.c.product_id))
-                .where(product_categories.c.category_id == cat.id)
-            )
-            await load_subs(cat)
+        flat_tree = []
+        for root in roots:
+            flatten(root, flat_tree)
         
-        # Топ-5 (тоже с рекурсией)
-        top_categories = (await db.scalars(
-            select(Category)
-            .join(product_categories)
-            .group_by(Category.id)
-            .order_by(func.count(product_categories.c.product_id).desc())
-            .limit(5)
-        )).all()
-        
-        for cat in top_categories:
-            cat.product_count = await db.scalar(
-                select(func.count(product_categories.c.product_id))
-                .where(product_categories.c.category_id == cat.id)
-            )
-            await load_subs(cat)
-        
-        return {"root_categories": root_categories, "top_categories": top_categories}
+        return flat_tree

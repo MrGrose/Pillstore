@@ -27,13 +27,10 @@ async def products_page(
 ):
     product_svc = ProductService(db)
     cart_svc = CartService(db)
-    category_svc = CategoryService(db)
-    
     pagination = await product_svc.get_products_page(page, page_size, search_product, request, category_id)
     cart_count = await cart_svc.cart_count(current_user, pagination.items)
-    categories = await category_svc.get_all_categories()
-    categories_data = await product_svc.get_categories_tree(db)
-
+    flat_tree = await product_svc.get_flat_tree()
+    
     return templates.TemplateResponse(
         "index.html",
         {
@@ -42,9 +39,8 @@ async def products_page(
             "current_user": current_user,
             "pagination": pagination,
             "search": search_product,
-            "categories": categories,
-            "root_categories": categories_data["root_categories"],
-            "top_categories": categories_data["top_categories"],
+            "flat_tree": flat_tree,
+            "active_category_id": category_id,
         }
     )
 
