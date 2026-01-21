@@ -1,0 +1,22 @@
+services:
+  db:
+    image: postgres:17-alpine
+    env_file:
+      - .env
+    restart: always
+    ports:
+      - "5434:5432"
+    volumes:
+      - db:/var/lib/postgresql/data
+    networks:
+      - app
+
+volumes:
+  db:
+    driver: local
+  cache:
+    driver: local
+
+networks:
+  app:
+    driver: bridge

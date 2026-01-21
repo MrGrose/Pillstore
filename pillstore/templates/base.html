@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>{% block title %}PillStore{% endblock %}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', path='/css/footer.css') }}">
+</head>
+<body class="page-footer-always-bottom"> 
+
+<nav class="navbar navbar-expand-lg navbar-light bg-light sticky-top">
+    <div class="container">
+        <a class="navbar-brand fw-bold fs-3" href="/products">
+            <i class="fas fa-pills text-primary"></i> PillStore
+        </a>
+        <div class="d-flex align-items-center">
+            {% if current_user %}
+            <a href="/orders/cart" class="btn btn-outline-primary position-relative me-3">
+                <i class="fas fa-shopping-cart"></i>
+                <span id="cart-counter" class="position-absolute top-0 start-100 translate-middle 
+                      badge rounded-pill bg-danger {{ 'd-none' if not cart_count or cart_count == 0 }}">
+                    {{ cart_count or 0 }}
+                </span>
+            </a>
+                <div class="btn-group" role="group">
+                    <a href="/profile" class="btn btn-outline-primary">
+                        <i class="fas fa-user me-1"></i>
+                        <span class="d-none d-sm-inline"></span>
+                    </a>
+                    {% if current_user.role == 'seller' %}
+                    <a href="/admin" class="btn btn-outline-primary">
+                        <i class="fas fa-cogs me-1"></i>
+                    </a>
+                    {% endif %}
+                    <form action="/auth/logout" method="post" style="display: contents;">
+                        <button class="btn btn-outline-danger border-0">
+                            <i class="fas fa-sign-out-alt"></i>
+                        </button>
+                    </form>
+                </div>
+            {% else %}
+                <a href="/auth/" class="btn btn-primary">
+                    <i class="fas fa-sign-in-alt me-1"></i>Войти
+                </a>
+            {% endif %}
+        </div>
+    </div>
+</nav>
+    <main class="flex-grow-1">
+        <div class="container py-4">
+            {% block content %}{% endblock %}
+        </div>
+    </main>
+    <footer class="bg-dark text-white py-4 mt-auto w-100">
+        <div class="container text-center">
+            <p class="mb-0">&copy; 2026 PillStore. Витамины и БАДы c iHerb.</p>
+        </div>
+    </footer>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js">
+    
+</script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

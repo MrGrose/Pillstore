@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+
+{% block title %}Редактировать {{ user.email }}{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card shadow-lg">
+                <div class="card-header">
+                    <h3>Редактировать {{ user.email }}</h3>
+                </div>
+                <form action="{{ action_url }}" method="post" enctype="multipart/form-data">
+                    <div class="card-body">
+                        <input type="hidden" name="tab" value="{{ tab }}">
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Email</label>
+                            <input type="email" class="form-control" name="email" value="{{ user.email }}" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Пароль (оставьте пустым для сохранения)</label>
+                            <input type="password" class="form-control" name="password">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Роль</label>
+                            <select class="form-select" name="role" required>
+                                <option value="buyer" {{ 'selected' if user.role == 'buyer' else '' }}>Покупатель</option>
+                                <option value="seller" {{ 'selected' if user.role == 'seller' else '' }}>Админ</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="card-footer">
+                        <a href="/admin?tab={{ tab }}" class="btn btn-secondary">Отмена</a>
+                        <button type="submit" class="btn btn-primary">Сохранить</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

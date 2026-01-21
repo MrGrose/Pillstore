@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+
+{% block title %}
+{% if product %}Редактировать товар #{{ product.id }}{% else %}Добавить товар{% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row">
+        <div class="col-md-8 mx-auto">
+            <div class="card shadow">
+                <div class="card-header d-flex justify-content-between align-items-center bg-warning text-dark">
+                    <h4>
+                        {% if product %}
+                            <i class="fas fa-edit me-2"></i>Редактировать: {{ product.name }}
+                        {% else %}
+                            <i class="fas fa-plus me-2"></i>Новый товар
+                        {% endif %}
+                    </h4>
+                    <a href="/admin?tab={{ tab }}" class="btn btn-outline-secondary btn-sm">
+                        <i class="fas fa-arrow-left me-2"></i>К панели
+                    </a>
+                </div>
+                <div class="card-body">
+                    <form method="post" action="/admin/products" enctype="multipart/form-data">
+                       <input type="hidden" name="product_id_str" value="{% if product %}{{ product.id }}{% endif %}">
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label">Название *</label>
+                                <input type="text" name="name" 
+                                       value="{{ product.name if product else '' }}" 
+                                       class="form-control" required>
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <label class="form-label">Бренд</label>
+                                <input type="text" name="brand" 
+                                       value="{{ product.brand if product else '' }}" 
+                                       class="form-control">
+                            </div>
+                                <div class="col-md-12">
+                                    <label class="form-label">Категории</label>
+                                    <div class="row">
+                                        {% for root in categories %}
+                                            <div class="col-md-4 mb-2">
+                                                <div class="form-check">
+                                                    <input class="form-check-input" type="checkbox" 
+                                                        name="category_ids"
+                                                        value="{{ root.id }}" id="cat_{{ root.id }}"
+                                                        {% if product and root.id in product.category_ids %}checked{% endif %}>
+                                                    <label class="form-check-label" for="cat_{{ root.id }}">
+                                                        {{ root.name }}
+                                                    </label>
+                                                </div>
+                                            </div>
+                                            {% for child in root.children %}
+                                                <div class="col-md-4 mb-2">
+                                                    <div class="form-check">
+                                                        <input class="form-check-input" type="checkbox" 
+                                                            name="category_ids"
+                                                            value="{{ child.id }}" id="cat_{{ child.id }}"
+                                                            {% if product and child.id in product.category_ids %}checked{% endif %}>
+                                                        <label class="form-check-label" for="cat_{{ child.id }}">
+                                                            &nbsp;&nbsp;{{ child.name }}
+                                                        </label>
+                                                    </div>
+                                                </div>
+                                            {% endfor %}
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Цена *</label>
+                                <input type="number" name="price" step="0.01" min="0" 
+                                       value="{{ product.price if product else '' }}" 
+                                       class="form-control" required>
+                            </div>
+                            
+                            <div class="col-md-4">
+                                <label class="form-label">Склад</label>
+                                <input type="number" name="stock" min="0" 
+                                       value="{{ product.stock if product else '' }}" 
+                                       class="form-control">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Статус</label>
+                                <select name="is_active" class="form-select">
+                                    <option value="true" 
+                                            {% if not product or product.is_active %}selected{% endif %}>
+                                        Активен
+                                    </option>
+                                    <option value="false" 
+                                            {% if product and not product.is_active %}selected{% endif %}>
+                                        Неактивен
+                                    </option>
+                                </select>
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label">Изображение</label>
+                                {% if product and product.image_url %}
+                                <div class="mb-2">
+                                    <img src="{{ product.image_url }}" class="img-thumbnail" style="max-height: 150px; max-width: 200px;">
+                                </div>
+                                {% endif %}
+                                <input type="file" name="image" class="form-control" accept="image/*">
+                            </div>
+                                <div class="col-md-12">
+                                    <label class="form-label">Описание</label>
+                                    <textarea name="description" rows="6" class="form-control">{{ product.description }}</textarea>
+                                </div>
+                        </div>
+                        <div class="d-flex gap-2 mt-4">
+                            <a href="/admin?tab={{ tab }}" class="btn btn-secondary">
+                                <i class="fas fa-times me-2"></i>Отмена
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save me-2"></i>Сохранить товар
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

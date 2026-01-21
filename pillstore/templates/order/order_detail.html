@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+
+{% block title %}Заказ #{{ order.id }} - PillStore{% endblock %}
+
+{% block content %}
+
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-10">
+            <div class="d-flex justify-content-between align-items-start mb-4">
+                <div>
+                    <h1 class="mb-1">Заказ <strong>#{{ order.id }}</strong></h1>
+                    <p class="text-muted mb-0">
+                        Создан: <strong>{{ order.created_at.strftime('%d.%m.%Y %H:%M') }}</strong>
+                        {% if order.updated_at != order.created_at %}
+                            | Обновлён: <strong>{{ order.updated_at.strftime('%d.%m.%Y %H:%M') }}</strong>
+                        {% endif %}
+                    </p>
+                </div>
+            </div>
+            <div class="card shadow-lg mb-5">
+                <div class="card-header bg-light border-0">
+                    <h4 class="mb-0">
+                        <i class="fas fa-boxes me-2 text-primary"></i>
+                        Товары ({{ order.items|length }} позиций)
+                    </h4>
+                </div>
+                <div class="card-body p-0">
+                    {% for item in order.items %}
+                    <div class="row g-0 align-items-center p-4 border-bottom">
+                        <div class="col-md-2 p-3">
+                            <img src="{{ item.product.image_url or '/static/no-image.jpg' }}" 
+                                 class="img-fluid rounded-3 shadow-sm w-100"
+                                 style="height: 120px; object-fit: cover;"
+                                 alt="{{ item.product.name }}">
+                        </div>
+                        <div class="col-md-5 p-4">
+                            <h5 class="mb-2 fw-semibold">{{ item.product.name }}</h5>
+                            <p class="mb-2 text-muted">{{ item.product.brand }}</p>
+                            <div class="row text-muted small">
+                                <div class="col-6">
+                                    <i class="fas fa-hashtag me-1"></i>
+                                    {{ item.product.id }}
+                                </div>
+                                <div class="col-6">
+                                    <i class="fas fa-layer-group me-1"></i>
+                                    Остаток: {{ item.product.stock }}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-2 text-md-center py-4">
+                            <div class="h3 fw-bold text-primary mb-1">{{ item.quantity }}</div>
+                            <div class="h6 text-muted">× {{ "%.2f"|format(item.unit_price) }}</div>
+                        </div>
+                        <div class="col-md-3 text-md-end py-4 pe-4">
+                            <div class="h3 fw-bold text-success mb-1">
+                                {{ "%.2f"|format(item.total_price) }}
+                            </div>
+                            <small class="text-muted">за товары</small>
+                        </div>
+                        <div class="col-md-3 text-md-end py-4 pe-4">
+                            <div class="h3 fw-bold text-success mb-1">
+                                {{ "%.2f"|format(item.total_price) }}
+                            </div>
+                            <small class="text-muted">за товары</small>
+                        
+                            <form action="/orders/{{ order.id }}/items/{{ item.id }}/return" method="post" class="d-inline mt-2">
+                                <button type="submit" class="btn btn-sm btn-outline-warning" 
+                                        onclick="return confirm('Вернуть {{ item.quantity }}шт {{ item.product.name }} на склад?')">
+                                    <i class="fas fa-undo me-1"></i>Вернуть на склад
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            <div class="card shadow-lg mb-5">
+                <div class="card-body p-4">
+                    <div class="row align-items-center">
+                        <div class="col-md-8">
+                            <h5 class="mb-2">
+                                {% if order.status == 'paid' or order.status == 'completed' %}
+                                    <i class="fas fa-check-circle text-success me-2"></i>
+                                    Оплачено ✅
+                                {% else %}
+                                    <i class="fas fa-clock text-warning me-2"></i>
+                                    Ожидает оплаты ⏳
+                                {% endif %}
+                            </h5>
+                        </div>
+                        <div class="col-md-4 text-md-end">
+                            <h2 class="text-primary fw-bold mb-0">
+                                {{ "%.2f"|format(order.total_amount) }}
+                            </h2>
+                            <small class="text-muted">Общая сумма</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="d-flex justify-content-between">
+                <a href="#" class="btn btn-outline-secondary btn-lg px-4" onclick="history.back()">
+                    <i class="fas fa-user me-2"></i>Назад
+                </a>
+                <a href="/products" class="btn btn-primary btn-lg px-4">
+                    <i class="fas fa-shopping-bag me-2"></i>Продолжить покупки
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
