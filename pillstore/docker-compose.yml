@@ -11,6 +11,23 @@ services:
     networks:
       - app
 
+  linters:
+    build:
+      context: ./app/.linter
+    volumes:
+      - ./app/.linter/pyproject.toml:/opt/linters/pyproject.toml:ro
+      - ./app/.linter/poetry.lock:/opt/linters/poetry.lock:ro
+      - ./app:/app
+    working_dir: /app
+    profiles: [ "lint" ]
+
+  editorconfig-checker:
+    image: mstruebing/editorconfig-checker:v3.0.1
+    volumes:
+      - ./:/check
+    profiles:
+      - donotstart
+
 volumes:
   db:
     driver: local
