@@ -104,7 +104,7 @@ class CrudProduct(CRUDBase):
         search: str | None = None,
         category_id: int | None = None
     ) -> Select:
-        stmt = select(self.model).where(self.model.is_active == True)
+        stmt = select(self.model).where(self.model.is_active == True).where(self.model.stock > 0)
         
         if category_id:
             stmt = stmt.where(self.model.category_id.any(category_id))
