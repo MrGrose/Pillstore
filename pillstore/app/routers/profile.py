@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, status, HTTPException, Request
+from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse
 
 from sqlalchemy.ext.asyncio import AsyncSession

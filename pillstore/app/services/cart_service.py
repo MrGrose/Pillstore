@@ -1,13 +1,10 @@
 from fastapi import HTTPException
-from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.db_crud.cart_crud import CrudCart
-from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.cart_items import CartItem 
 from app.models.users import User
 from app.schemas.product import ProductRead
 from app.models.products import Product
-from app.db_crud.cart_crud import CrudCart
 from app.db_crud.products_crud import CrudProduct
 
 

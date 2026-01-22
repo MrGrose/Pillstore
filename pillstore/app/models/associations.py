@@ -1,4 +1,4 @@
-from sqlalchemy import Table, Column, ForeignKey, Integer
+from sqlalchemy import Table, Column, ForeignKey
 from app.db.base import Base
 
 product_categories = Table(

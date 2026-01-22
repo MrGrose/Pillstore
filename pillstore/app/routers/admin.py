@@ -1,15 +1,13 @@
-from fastapi import APIRouter, Depends, status, HTTPException, Request, UploadFile, File, Form, Query
+from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, File, Form, Query
 from fastapi.responses import HTMLResponse, RedirectResponse
-from sqlalchemy.orm.attributes import flag_modified
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import inspect, select, func, update
+from sqlalchemy import select, func
 from sqlalchemy.orm import selectinload
 
 from app.core.deps import get_db
 from app.core.config import templates
 
 from app.models.products import Product as ProductModel
-from app.models.orders import Order
 from app.models.users import User as UserModel
 from app.models.orders import Order as OrderModel, OrderItem
 

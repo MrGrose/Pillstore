@@ -1,7 +1,7 @@
 from decimal import Decimal
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, status, HTTPException, Request, Query, Form, Request
+from fastapi import APIRouter, Depends, status, HTTPException, Query, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 
 from sqlalchemy import delete, func, select, and_
@@ -16,7 +16,6 @@ from app.models.cart_items import CartItem as CartItemModel
 from app.models.orders import Order as OrderModel, OrderItem as OrderItemModel
 from app.models.users import User as UserModel
 from app.schemas.order import Order as OrderSchema, OrderList
-from app.services.cart_service import CartService
 from app.core.config import templates
 
 router = APIRouter(
