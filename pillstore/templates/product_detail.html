@@ -92,6 +92,7 @@
                             hyphens: auto;
                             line-height: 1.6; 
                             max-width: 100%;
+                            padding-left: 1.5rem
                         ">
                         {% for item in product.description["Пищевая ценность"] %}
                         <li class="mb-1">{{ item | replace('\n', '<br>') | safe }}</li>
