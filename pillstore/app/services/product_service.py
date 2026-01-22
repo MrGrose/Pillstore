@@ -15,6 +15,8 @@ from app.exceptions.products import ProductNotFoundError
 
 from app.schemas.category import CategoryTreeOut
 
+from app.services.utils import formatted_description
+
 class ProductService:
     
     def __init__(self, session: AsyncSession):
@@ -41,6 +43,7 @@ class ProductService:
             product.available_stock = product.stock - getattr(product, "cart_qty", 0)
         else:
             product.available_stock = product.stock
+        product.description = await formatted_description(product)
         return product
     
     async def cart_qty_for_product(self, product_id: int, user: User, product: Product) -> None:

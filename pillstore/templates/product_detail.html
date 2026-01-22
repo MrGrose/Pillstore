@@ -63,7 +63,7 @@
                             line-height: 1.6; 
                             max-width: 100%;
                         ">
-                        {% for section_name, items in description.items() if section_name != "Пищевая ценность" %}
+                        {% for section_name, items in product.description.items() if section_name != "Пищевая ценность" %}
                         <div class="section mb-3 pb-2 border-bottom mt-3">
                             <h6 class="fw-bold text-primary mb-2">{{ section_name }}:</h6>
                             {% for item in items %}
@@ -76,7 +76,7 @@
             </div>
         </div>
         <div class="col-md-4">
-            {% if description.get("Пищевая ценность") %}
+            {% if product.description.get("Пищевая ценность") %}
             <div class="card border-0 shadow-sm rounded-3 w-100">
                 <div class="card-header bg-light py-2 px-3 border-bottom rounded-top-3">
                     <h5 class="mb-0 fw-semibold text-dark">
@@ -93,7 +93,7 @@
                             line-height: 1.6; 
                             max-width: 100%;
                         ">
-                        {% for item in description["Пищевая ценность"] %}
+                        {% for item in product.description["Пищевая ценность"] %}
                         <li class="mb-1">{{ item | replace('\n', '<br>') | safe }}</li>
                         {% endfor %}
                     </div>
