@@ -43,46 +43,67 @@
             </div>
             {% endif %}
         </div>
-
     </div>
-
-{% if product.description_left %}
-<div class="mt-4 mb-4">
-    <div class="card border-0 shadow-sm rounded-3 w-100 h-100 overflow-hidden">
-        <div class="card-header bg-light py-2 px-3 border-bottom rounded-top-3 position-relative">
-            <h5 class="mb-0 fw-semibold text-dark m-0">
-                <i class="fas fa-info-circle me-2"></i>
-                О продукте
-            </h5>
-        </div>
-        <div class="card-body p-3 pt-0 text-justify overflow-hidden">
-            <div class="lh-lg text-break small w-100" 
-                 style="word-break: break-all !important; overflow-wrap: break-word !important; overflow: hidden; line-height: 1.6; max-width: 100%;">
-                {{ product.description_left|replace('\n', '<br>')|safe }}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-8">
+            <div class="card shadow-sm rounded-3">
+                <div class="card-header bg-light py-2 px-3 border-bottom rounded-top-3">
+                    <h5 class="mb-0 fw-semibold text-dark">
+                        <i class="fas fa-info-circle me-2"></i>О продукте
+                    </h5>
+                </div>
+                <div class="card-body p-3 pt-0 text-justify">
+                    <div class="lh-lg small w-100 text-wrap" 
+                        style="
+                            overflow-wrap: break-word !important; 
+                            word-break: break-word !important; 
+                            white-space: pre-wrap; 
+                            hyphens: auto;
+                            line-height: 1.6; 
+                            max-width: 100%;
+                        ">
+                        {% for section_name, items in description.items() if section_name != "Пищевая ценность" %}
+                        <div class="section mb-3 pb-2 border-bottom mt-3">
+                            <h6 class="fw-bold text-primary mb-2">{{ section_name }}:</h6>
+                            {% for item in items %}
+                            <p class="mb-1">{{ item | replace('\n', '<br>') | safe }}</p>
+                            {% endfor %}
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
             </div>
+        </div>
+        <div class="col-md-4">
+            {% if description.get("Пищевая ценность") %}
+            <div class="card border-0 shadow-sm rounded-3 w-100">
+                <div class="card-header bg-light py-2 px-3 border-bottom rounded-top-3">
+                    <h5 class="mb-0 fw-semibold text-dark">
+                        <i class="fas fa-info-circle me-2"></i>Пищевая ценность
+                    </h5>
+                </div>
+                <div class="card-body p-3 pt-0 text-justify">
+                    <div class="lh-lg small w-100 text-wrap mt-3" 
+                        style="
+                            overflow-wrap: break-word !important; 
+                            word-break: break-word !important; 
+                            white-space: pre-wrap; 
+                            hyphens: auto;
+                            line-height: 1.6; 
+                            max-width: 100%;
+                        ">
+                        {% for item in description["Пищевая ценность"] %}
+                        <li class="mb-1">{{ item | replace('\n', '<br>') | safe }}</li>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
         </div>
     </div>
 </div>
-{% endif %}
 
-{% if product.description_right %}
-<div class="mt-4 mb-4">
-    <div class="card border-0 shadow-sm rounded-3 w-100 h-100 overflow-hidden">
-        <div class="card-header bg-light py-2 px-3 border-bottom rounded-top-3 position-relative">
-            <h5 class="mb-0 fw-semibold text-dark m-0">
-                <i class="fas fa-info-circle me-2"></i>
-                О продукте
-            </h5>
-        </div>
-        <div class="card-body p-3 pt-0 text-justify overflow-hidden">
-            <div class="lh-lg text-break small w-100" 
-                 style="word-break: break-all !important; overflow-wrap: break-word !important; overflow: hidden; line-height: 1.6; max-width: 100%;">
-                {{ product.description_right|replace('\n', '<br>')|safe }}
-            </div>
-        </div>
-    </div>
-</div>
-{% endif %}
 
 </div>
 {% endblock %}

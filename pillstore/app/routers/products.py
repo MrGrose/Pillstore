@@ -9,8 +9,8 @@ from app.core.security import get_current_user_optional
 from app.core.config import templates
 from app.services.product_service import ProductService
 from app.services.cart_service import CartService
-from app.services.category_service import CategoryService
 
+from app.services.utils import formatted_description
 
 router = APIRouter(prefix="/products", tags=["Web products"])
 
@@ -56,7 +56,7 @@ async def product_detail(
     cart_svc = CartService(db)
     product = await product_svc.get_product_detail(product_id, current_user)
     cart_count = await cart_svc.cart_count(current_user, [])
-
+    description = await formatted_description(product)
     return templates.TemplateResponse(
         "product_detail.html",
         {
@@ -64,6 +64,7 @@ async def product_detail(
             "product": product,
             "current_user": current_user,
             "cart_count": cart_count,
+            "description": description 
         }
     )
     
