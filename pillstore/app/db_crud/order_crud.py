@@ -79,3 +79,10 @@ class CrudOrder(CRUDBase):
                 total_price=quantity * product_price,
             )
             self.session.add(item)
+
+    async def orders_for_profile(self, user: int) -> list[Order]:
+        db_orders = await self.session.scalars(
+            select(self.model).where(self.model.user_id == user)
+        )
+        orders = list(db_orders.all())
+        return orders

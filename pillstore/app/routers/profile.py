@@ -2,14 +2,14 @@ from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse
 
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
 
 from app.core.deps import get_db
-from app.models.orders import Order
 from app.core.config import templates
 
-from app.models.users import User as UserModel
+from app.models.users import User
 from app.core.security import get_current_user
+
+from app.services.profile_service import ProfileService
 
 router = APIRouter(tags=["Profile"])
 
@@ -18,12 +18,10 @@ router = APIRouter(tags=["Profile"])
 async def profile_page(
     request: Request,
     db: AsyncSession = Depends(get_db),
-    current_user: UserModel = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
-    db_orders = await db.scalars(
-        select(Order).where(Order.user_id == current_user.id)
-    )
-    orders = list(db_orders.all())
+    profile_svc = ProfileService(db)
+    orders = await profile_svc.get_orders_profile(current_user)
 
     return templates.TemplateResponse(
         "/profile/profile.html", 
