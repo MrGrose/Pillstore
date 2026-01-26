@@ -4,14 +4,7 @@
 
 {% block content %}
 
-    <nav class="navbar navbar-expand-lg bg-light">
-        <div class="container">
-            <a href="/products" class="navbar-brand">🏥 PillStore</a>
-            <a href="/products" class="btn btn-outline-primary">Продолжить покупки</a>
-        </div>
-    </nav>
     <div class="container py-5">
-        <h2>🛒 Корзина</h2>
         {% if cart_items %}
         <div class="row">
             {% for item in cart_items %}
