@@ -50,7 +50,6 @@ class OrderService:
                     detail=f"Продукт {product.name} не имеет цену",
                 )
             total_price = unit_price * cart_item.quantity
-            total_amount += total_price
 
             order_item = OrderItem(
                 product_id=cart_item.product_id,
@@ -60,7 +59,7 @@ class OrderService:
             )
             order.items.append(order_item)
             product.stock -= cart_item.quantity
-            total_amount += order_item.total_price
+            total_amount += total_price
 
         order.total_amount = total_amount
 
