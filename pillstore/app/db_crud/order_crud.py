@@ -1,9 +1,10 @@
 from decimal import Decimal
-from sqlalchemy import func, select
+from sqlalchemy import Select, func, select
 from sqlalchemy.orm import selectinload
 
 from app.db_crud.base import CRUDBase
 from app.models.orders import Order, OrderItem
+from app.models.users import User
 
 
 class CrudOrder(CRUDBase):
@@ -11,7 +12,7 @@ class CrudOrder(CRUDBase):
         self.model = model
         self.session = session
 
-    async def get_order_with_items(self, id: int):
+    async def get_order_with_items(self, id: int) -> Order:
         stmt = (
             select(self.model)
             .options(
@@ -38,12 +39,12 @@ class CrudOrder(CRUDBase):
             .where(OrderItem.id == item_id, OrderItem.order_id == order_id)
         )
 
-    async def return_item(self, order_item: OrderItem):
+    async def return_item(self, order_item: OrderItem) -> None:
         order_item.product.stock += order_item.quantity
         await self.session.delete(order_item)
         await self.session.flush()
 
-    async def delete_empty_order(self, order: Order):
+    async def delete_empty_order(self, order: Order) -> None:
         await self.session.delete(order)
         await self.session.commit()
 
@@ -52,16 +53,9 @@ class CrudOrder(CRUDBase):
             select(func.count(OrderItem.id)).where(OrderItem.order_id == order_id)
         )
 
-    async def get_order_detailed(self, order_id: int, user_id: int):
-        return await self.session.scalar(
-            select(Order)
-            .options(selectinload(Order.items))
-            .where(Order.id == order_id, Order.user_id == user_id)
-        )
-
     async def add_or_update_item(
         self, order: Order, product_id: int, quantity: int, product_price: Decimal
-    ):
+    ) -> None:
         existing_item = next(
             (item for item in order.items if item.product_id == product_id), None
         )
@@ -86,3 +80,36 @@ class CrudOrder(CRUDBase):
         )
         orders = list(db_orders.all())
         return orders
+
+    async def get_user_order_counts(self, user: User) -> int:
+        result = await self.session.scalar(
+            select(func.count(self.model.id)).where(self.model.user_id == user.id)
+        )
+        return result
+
+    async def get_orders_list(self, status_filter: str | None) -> list[Order]:
+        query = (
+            select(self.model)
+            .options(selectinload(self.model.user))
+            .order_by(self.model.created_at.desc())
+        )
+        if status_filter and status_filter != "all":
+            query = query.where(self.model.status == status_filter)
+        result = await self.session.scalars(query)
+        return list(result.all())
+
+    async def get_order(
+        self, order_id: int, user_id: int = None, load_products: bool = False
+    ) -> Order:
+        stmt = select(self.model).options(selectinload(self.model.items))
+        if load_products:
+            stmt = stmt.options(
+                selectinload(self.model.items).selectinload(OrderItem.product)
+            )
+        if user_id:
+            stmt = stmt.where(self.model.id == order_id, self.model.user_id == user_id)
+        else:
+            stmt = stmt.where(self.model.id == order_id)
+        stmt = stmt.options(selectinload(self.model.user))
+
+        return await self.session.scalar(stmt)

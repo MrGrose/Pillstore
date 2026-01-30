@@ -1,10 +1,13 @@
 from sqlalchemy import and_, select, func, or_, Select
+from sqlalchemy.orm import selectinload
+
 from app.db_crud.base import CRUDBase
-from app.schemas.product import ProductPagination, PageUrls
+from app.schemas.product import ProductPagination, PageUrls, ProductUpdate
 from fastapi import HTTPException, Request, status
 
 from app.core.config import PAGINATION_SIZES
 from app.models.products import Product
+from app.models.orders import OrderItem
 
 
 class CrudProduct(CRUDBase):
@@ -150,3 +153,27 @@ class CrudProduct(CRUDBase):
                 self.model.id == product_id, self.model.stock >= quantity
             )
         )
+
+    async def count_order_items(self, product_id: int) -> int:
+        result = await self.session.scalar(
+            select(func.count())
+            .select_from(OrderItem)
+            .where(OrderItem.product_id == product_id)
+        )
+        return result or 0
+
+    async def get_by_id_with_categories(self, id: int) -> Product:
+        stmt = (
+            select(self.model)
+            .options(selectinload(self.model.categories))
+            .where(self.model.id == id)
+        )
+        result = await self.session.scalars(stmt)
+        return result.first()
+
+    async def update_product(self, product_id: int, data: ProductUpdate) -> Product:
+        product_with_categories = await self.get_by_id_with_categories(product_id)
+        product = await self.update(
+            product_with_categories, data.model_dump(exclude={"image_url"})
+        )
+        return product
