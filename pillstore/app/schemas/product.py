@@ -20,7 +20,7 @@ class ProductCreate(BaseModel):
     name: str = Field(
         ...,
         min_length=3,
-        max_length=100,
+        max_length=255,
         description="Название товара (3-100 символов)",
     )
     name_en: str | None = Field(
@@ -29,7 +29,7 @@ class ProductCreate(BaseModel):
     brand: str | None = Field(
         ...,
         min_length=1,
-        max_length=100,
+        max_length=255,
         description="Название бренда (1-100 символов)",
     )
     price: Decimal = Field(

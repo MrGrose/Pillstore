@@ -28,7 +28,6 @@ from app.services.user_service import UserService
 
 from app.schemas.product import ProductCreate, ProductUpdate
 
-
 router = APIRouter(prefix="/admin", tags=["Admin panel"])
 
 

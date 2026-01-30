@@ -108,15 +108,32 @@ class AdminService:
 
         return f"ID {product.id} Товар {product.name} обновлен", "success"
 
-    async def create_product_admin(
-        self, data: ProductCreate, image: UploadFile | None = None
-    ):
-        product = await self.product_crud.create(data.model_dump(exclude={"image_url"}))
+    # async def create_product_admin(
+    #     self, data: ProductCreate, image: UploadFile | None = None
+    # ):
+    #     product = await self.product_crud.create(data.model_dump(exclude={"image_url"}))
 
-        product.image_url = (
-            await save_product_image(image) if image and image.filename else ""
-        )
+    #     product.image_url = (
+    #         await save_product_image(image) if image and image.filename else ""
+    #     )
+    #     self.session.add(product)
+    #     await self.session.commit()
+
+    #     return f"ID {product.id} Товар {product.name} создан", "success"
+
+    async def create_product_admin(self, data: ProductCreate, image: UploadFile | None = None):
+        product_data = data.model_dump(exclude={"image_url"})
+        product = await self.product_crud.create(product_data)
+        
+        # ✅ Сначала image_url из данных (iHerb), потом файл
+        if data.image_url:
+            product.image_url = data.image_url
+        elif image and image.filename:
+            product.image_url = await save_product_image(image)
+        else:
+            product.image_url = ""
+        
         self.session.add(product)
         await self.session.commit()
-
+        
         return f"ID {product.id} Товар {product.name} создан", "success"

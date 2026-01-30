@@ -95,12 +95,51 @@
                             </div>
                         </div>
                         <div class="tab-pane fade {{ 'show active' if tab == 'products' else '' }}" id="products">
-                            <div class="d-flex justify-content-between mb-3">
-                                <h4>Управление товарами</h4>
-                                <a href="/admin/products/new?tab=products" class="btn btn-success">
-                                    <i class="fas fa-plus me-2"></i>Добавить товар
-                                </a>
-                            </div>
+    <div class="d-flex justify-content-between mb-3">
+        <h4>Управление товарами</h4>
+        <div class="btn-group" role="group">
+            <a href="/admin/products/new?tab=products" class="btn btn-success">
+                <i class="fas fa-plus me-2"></i>Добавить товар
+            </a>
+            <!-- *** НОВЫЙ БЛОК iHerb *** -->
+            <button type="button" class="btn btn-outline-info" data-bs-toggle="modal" data-bs-target="#iherbModal">
+                <i class="fas fa-magic me-1"></i>Импорт iHerb
+            </button>
+        </div>
+    </div>
+
+    <!-- *** МОДАЛЬНОЕ ОКНО iHerb *** -->
+    <div class="modal fade" id="iherbModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Импорт товара с iHerb</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <form action="/admin/products/iherb-import" method="POST" enctype="multipart/form-data">
+
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label class="form-label">URL товара iHerb</label>
+                            <input type="url" name="url" class="form-control" 
+                                   placeholder="https://ru.iherb.com/pr/21st-century-calcium-magnesium-zinc-d3-90-tablets/10695"
+                                   required>
+                            <div class="form-text">Вставь ссылку на товар — автоматически спарсим название, цену, фото, описание</div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                        <button type="submit" class="btn btn-info">
+                            <i class="fas fa-magic me-1"></i>Спарсить и добавить
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Остальной код таблицы товаров... -->
+
                             <div class="table-responsive">
                                 <h4>Активные</h4>
                                 <table class="table table-hover">

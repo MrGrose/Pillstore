@@ -72,7 +72,40 @@ async def delete_all_products(
 ):
     await db.execute(delete(Product))
     await db.commit()
-    
+
+
+@router.put("/{product_id}", response_model=ProductSchema)
+async def update_product(
+        product_id: int,
+        product: ProductCreate = Depends(ProductCreate.as_form),
+        image: UploadFile | None = File(None),
+        db: AsyncSession = Depends(get_db),
+):
+    result = await db.scalars(select(Product).where(Product.id == product_id))
+    db_product = result.first()
+    if not db_product:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Продукт не найден")
+
+    category_result = await db.scalars(
+        select(Category).where(Category.id == product.category_id,
+                                    Category.is_active == True)
+    )
+    if not category_result.first():
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
+                            detail="Категория не найдена или неактивна")
+
+    await db.execute(
+        update(Product).where(Product.id == product_id).values(**product.model_dump())
+    )
+
+    if image:
+        remove_product_image(db_product.image_url)
+        db_product.image_url = await save_product_image(image)
+
+    await db.commit()
+    await db.refresh(db_product)
+    return db_product
+
 
 # Категории
 
@@ -108,10 +141,6 @@ async def create_category(
 
 @router.put("/{category_id}", response_model=CategoriesSchema)
 async def update_category(category_id: int, category: CategoryCreate, db: AsyncSession = Depends(get_db)):
-    """
-    Обновляет категорию по её ID.
-    """
-    # Проверяем существование категории
     stmt = select(Category).where(Category.id == category_id,
                                        Category.is_active == True)
     result = await db.scalars(stmt)
@@ -119,7 +148,6 @@ async def update_category(category_id: int, category: CategoryCreate, db: AsyncS
     if not db_category:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Категория не найдена")
 
-    # Проверяем parent_id, если указан
     if category.parent_id is not None:
         parent_stmt = select(Category).where(Category.id == category.parent_id,
                                                   Category.is_active == True)
@@ -130,7 +158,6 @@ async def update_category(category_id: int, category: CategoryCreate, db: AsyncS
         if parent.id == category_id:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Категория не может быть своей собственной родительской")
 
-    # Обновляем категорию
     update_data = category.model_dump(exclude_unset=True)
     await db.execute(
         update(Category)
@@ -166,18 +193,9 @@ async def delete_category(category_id: int, db: AsyncSession = Depends(get_db)):
 async def delete_all_categories(
     db: AsyncSession = Depends(get_db),
 ):
-    print("DEBUG: Starting delete categories...")  # Для логов
-    
-    # Удали связи
-    result1 = await db.execute(delete(product_categories))
-    print(f"DEBUG: Deleted {result1} links")
-    
-    # Удали категории
-    result2 = await db.execute(delete(Category))
-    print(f"DEBUG: Deleted {result2} categories")
-    
+    await db.execute(delete(product_categories))
+    await db.execute(delete(Category))
     await db.commit()
-    print("DEBUG: COMMIT done")
     
 # -----------
 
@@ -220,7 +238,7 @@ async def import_products(
             image_url=image_url,
             description_left=product_data.description_left,
             description_right=product_data.description_right,
-            stock=product_data.stock,
+            stock=10,
             seller_id=current_user.id,
             category_id=[cat.id for cat in categories],
             categories=categories,
@@ -231,3 +249,80 @@ async def import_products(
     
     await db.commit()
     return {"imported": len(created), "skipped": len(import_data.products) - len(created)}
+
+
+# -----------
+
+# Ручка добавление товара
+
+# @router.post("/cart/add")
+# async def add_to_cart(
+#     product_id: int = Form(...),
+#     quantity: int = Form(1),
+#     db: AsyncSession = Depends(get_db),
+#     current_user: UserModel = Depends(get_current_user),
+# ):
+#     cart_svc = CartService(db)
+#     # product_svc = ProductService(db)
+#     # product = await product_svc.get_active_product(product_id)
+#     # print(f'================== type {product}')
+#     # print(f'==========product {product}')
+#     result = await db.scalars(
+#         select(Product).where(Product.id == product_id, Product.is_active.is_(True))
+#     )
+#     product = result.first()
+#     if not product:
+#         raise HTTPException(status.HTTP_404_NOT_FOUND, "Товар не найден")
+#     print(f'================== type {type(result)}')
+#     print(f'==========result {result}')
+#     cart_result = await db.scalars(
+#         select(CartItemModel)
+#         .where(
+#             and_(
+#                 CartItemModel.user_id == current_user.id,
+#                 CartItemModel.product_id == product_id
+#             )
+#         )
+#     )
+#     cart_item = cart_result.first()
+
+#     if cart_item:
+#         cart_item.quantity += quantity
+#         cart_item.updated_at = datetime.utcnow()
+#     else:
+#         cart_item = CartItemModel(
+#             user_id=current_user.id,
+#             product_id=product_id,
+#             quantity=quantity
+#         )
+#         db.add(cart_item)
+
+#     await db.commit()
+#     await db.refresh(cart_item)
+
+#     return RedirectResponse(url="/products", status_code=303)
+
+
+# Ручка для отображения списка заказов
+# @router.get("/", response_model=OrderList)
+# async def list_orders(
+#     page: int = Query(1, ge=1),
+#     page_size: int = Query(10, ge=1, le=100),
+#     db: AsyncSession = Depends(get_db),
+#     current_user: UserModel = Depends(get_current_user),
+# ):
+
+#     total = await db.scalar(
+#         select(func.count(OrderModel.id)).where(OrderModel.user_id == current_user.id)
+#     )
+#     result = await db.scalars(
+#         select(OrderModel)
+#         .options(selectinload(OrderModel.items).selectinload(OrderItemModel.product))
+#         .where(OrderModel.user_id == current_user.id)
+#         .order_by(OrderModel.created_at.desc())
+#         .offset((page - 1) * page_size)
+#         .limit(page_size)
+#     )
+#     orders = result.all()
+
+#     return OrderList(items=orders, total=total or 0, page=page, page_size=page_size)

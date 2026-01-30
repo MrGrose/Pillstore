@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import RedirectResponse
 
-from app.routers import products, users, orders, auth, profile, admin, errors
+from app.routers import products, users, orders, auth, profile, admin, errors, scraper
 from app.api import api_products
 
 from app.exceptions.products import include_product_exceptions
@@ -17,7 +17,7 @@ app.mount("/media", StaticFiles(directory="media"), name="media")
 async def redirect_to_docs():
     return RedirectResponse(url="/products")
 
-
+app.include_router(scraper.router)
 app.include_router(auth.auth_router)
 app.include_router(api_products.router)
 app.include_router(products.router)

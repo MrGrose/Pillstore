@@ -11,7 +11,6 @@ from app.core.config import SECRET_KEY, ALGORITHM
 from app.core.deps import get_db
 
 
-
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 ACCESS_TOKEN_EXPIRE_MINUTES = 1440
@@ -101,9 +100,14 @@ async def get_current_user(
 
     return user
 
+
 async def get_current_seller(current_user: UserModel = Depends(get_current_user)):
     if current_user.role != "seller":
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Только у seller есть права")
+        raise HTTPException(
+            status_code=303,
+            headers={"Location": "/access-denied"},
+            detail="Только у seller есть права"
+        )
     return current_user
 
 
