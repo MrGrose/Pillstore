@@ -45,3 +45,6 @@ media/
 *.jpg
 *.jpeg
 *.png
+
+.linter
+Makefile
