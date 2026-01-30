@@ -142,7 +142,7 @@ class OrderService:
     async def add_item_to_order(
         self, order_id: int, item_id: int, quantity: int, current_user: UserModel
     ) -> str:
-        order = await self.order_crud.get_order_detailed(order_id, current_user.id)
+        order = await self.order_crud.get_order(order_id, current_user.id)
         if not order:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
