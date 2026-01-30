@@ -177,3 +177,9 @@ class CrudProduct(CRUDBase):
             product_with_categories, data.model_dump(exclude={"image_url"})
         )
         return product
+
+    async def get_by_url(self, url: str) -> Product:
+        result = await self.session.scalars(
+            select(self.model).where(self.model.url == url)
+        )
+        return result.first()

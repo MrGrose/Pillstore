@@ -1,4 +1,4 @@
-from sqlalchemy import select
+from sqlalchemy import or_, select
 
 from app.models.categories import Category
 from app.db_crud.base import CRUDBase
@@ -30,3 +30,36 @@ class CrudCategory(CRUDBase):
         stmt = select(self.model).where(self.model.id.in_(category_ids))
         result = await self.session.scalars(stmt)
         return list(result.all())
+
+    async def create_category_hierarchy(
+        self, category_path: list[str]
+    ) -> list[Category]:
+        categories = []
+        parent = None
+        for cat_name in category_path[1:]:
+            cat_name = cat_name.strip()
+            if cat_name and len(cat_name) > 1:
+                cat_result = await self.session.scalars(
+                    select(self.model)
+                    .where(
+                        or_(
+                            self.model.name == cat_name,
+                            self.model.name.ilike(f"%{cat_name}%"),
+                        )
+                    )
+                    .where(self.model.parent_id == (parent.id if parent else None))
+                )
+                cat = cat_result.first()
+                if not cat:
+                    cat = self.model(
+                        name=cat_name,
+                        parent_id=parent.id if parent else None,
+                        is_active=True,
+                    )
+                    self.session.add(cat)
+
+                categories.append(cat)
+                parent = cat
+
+        await self.session.flush()
+        return categories

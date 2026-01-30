@@ -47,11 +47,3 @@ class CRUDBase(Generic[ModelType]):
         await self.session.delete(obj)
         await self.session.commit()
         return obj
-
-    async def get_by_name(self, name: str):
-        """Поиск по имени (для Category/Product)"""
-        if hasattr(self.model, 'name'):
-            stmt = select(self.model).where(self.model.name == name)
-            result = await self.session.scalars(stmt)
-            return result.first()
-        return None

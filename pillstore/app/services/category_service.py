@@ -5,8 +5,8 @@ from app.db_crud.category_crud import CrudCategory
 
 from app.models.categories import Category
 
+
 class CategoryService:
-    "слой юзкейсов (сценарии и правила), который вызывает CrudCategory и не знает, как устроена БД"
     def __init__(self, session: AsyncSession):
         self.session = session
         self.crud = CrudCategory(session=session, model=Category)

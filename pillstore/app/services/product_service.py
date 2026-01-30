@@ -1,3 +1,4 @@
+from decimal import Decimal
 from fastapi import Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -10,11 +11,13 @@ from app.db_crud.cart_crud import CrudCart
 from app.db_crud.products_crud import CrudProduct
 from app.db_crud.category_crud import CrudCategory
 
-from app.schemas.product import ProductPagination
+from app.schemas.product import ProductCreate, ProductPagination
 from app.schemas.category import CategoryTreeOut
 
 from app.exceptions.products import ProductNotFoundError
-from app.services.utils import formatted_description
+
+from app.services.utils import formatted_description, save_image_from_url
+from app.services.iherb_scraper import IHerbScraper
 
 
 class ProductService:
@@ -22,6 +25,7 @@ class ProductService:
         self.session = session
         self.crud = CrudProduct(session=session, model=Product)
         self.cat = CrudCategory(session=session, model=Category)
+        self.scraper = IHerbScraper()
 
     async def get_products_page(
         self,
@@ -77,3 +81,51 @@ class ProductService:
             flatten(root, flat_tree)
 
         return flat_tree
+
+    async def import_iherb_product(self, url: str, seller: User) -> tuple[str, str]:
+        scraper = IHerbScraper()
+        product_data = scraper.parse_product_page(url)
+        if not product_data:
+            return "Не удалось распарсить", "error"
+
+        product_create = ProductCreate(
+            name=product_data.name or "",
+            name_en=product_data.name_en or "",
+            brand=product_data.brand or "",
+            price=Decimal(str(round(product_data.price or 0.0, 2))),
+            url=product_data.url or "",
+            stock=product_data.stock or 0,
+            is_active=False,
+            seller_id=seller.id,
+            description_left=product_data.description_left or "",
+            description_right=product_data.description_right or "",
+            image_url=None,
+            category_id=[],
+        )
+
+        existing = await self.crud.get_by_url(product_create.url)
+        if existing:
+            return f"Товар {product_create.name} уже существует", "warning"
+
+        categories = await self.cat.create_category_hierarchy(
+            product_data.category_path
+        )
+        product_create.category_id = [cat.id for cat in categories]
+
+        if product_data.images:
+            img_urls = (
+                product_data.images
+                if isinstance(product_data.images, list)
+                else [product_data.images]
+            )
+            product_create.image_url = await save_image_from_url(img_urls[0])
+
+        product_dict = product_create.model_dump(exclude={"seller_id"})
+        product_dict["seller_id"] = seller.id
+        product_dict["categories"] = categories
+
+        db_product = Product(**product_dict)
+        self.session.add(db_product)
+        await self.session.commit()
+
+        return f"ID {db_product.id} {product_create.name} импортирован", "success"
