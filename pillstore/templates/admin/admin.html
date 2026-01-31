@@ -11,20 +11,6 @@
     {{ flash_message.text }}
     <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
 </div>
-
-<style>
-@keyframes slideInRight {
-    from { transform: translateX(100%); opacity: 0; }
-    to { transform: translateX(0); opacity: 1; }
-}
-@keyframes slideOut {
-    0%, 80% { transform: translateX(0); opacity: 1; }
-    100% { transform: translateX(100%); opacity: 0; }
-}
-.alert {
-    animation: slideInRight 0.3s ease-out, slideOut 5s 2s forwards;
-}
-</style>
 {% endif %}
 <div class="container-fluid py-4">
     <div class="row">
@@ -95,84 +81,119 @@
                             </div>
                         </div>
                         <div class="tab-pane fade {{ 'show active' if tab == 'products' else '' }}" id="products">
-    <div class="d-flex justify-content-between mb-3">
-        <h4>Управление товарами</h4>
-        <div class="btn-group" role="group">
-            <a href="/admin/products/new?tab=products" class="btn btn-success">
-                <i class="fas fa-plus me-2"></i>Добавить товар
-            </a>
-            <!-- *** НОВЫЙ БЛОК iHerb *** -->
-            <button type="button" class="btn btn-outline-info" data-bs-toggle="modal" data-bs-target="#iherbModal">
-                <i class="fas fa-magic me-1"></i>Импорт iHerb
-            </button>
-        </div>
-    </div>
+                            <div class="card-header bg-primary text-white py-4 mb-4 shadow-lg">
+                                <div class="d-flex align-items-center justify-content-between flex-wrap gap-3 mb-3">
+                                    <div class="d-flex align-items-center">
+                                        <i class="fas fa-boxes fs-2 me-3 opacity-75"></i>
+                                        <div>
+                                            <h4 class="mb-0">Управление товарами</h4>
+                                        </div>
+                                    </div>
+                                    <div class="btn-group" role="group">
+                                        <a href="/admin/products/new?tab=products" class="btn btn-light px-3 py-2 shadow-sm">
+                                            <i class="fas fa-plus me-1"></i>Добавить
+                                        </a>
+                                        <button class="btn btn-outline-light px-3 py-2 shadow-sm" data-bs-toggle="modal" data-bs-target="#iherbModal">
+                                            <i class="fas fa-magic me-1"></i>Добавить с iHerb
+                                        </button>
+                                    </div>
+                                </div>
+                                <form method="get" action="/admin" class="d-flex gap-2 align-items-center justify-content-center" style="max-width: 600px; margin: 0 auto;">
+                                    <input type="hidden" name="tab" value="products">
+                                    <input type="hidden" name="page_active" value="{{ pagination_active.page }}">
+                                    <input type="hidden" name="page_size_active" value="{{ pagination_active.page_size }}">
+                                    <input type="hidden" name="page_inactive" value="{{ pagination_inactive.page }}">
+                                    <input type="hidden" name="page_size_inactive" value="{{ pagination_inactive.page_size }}">
+                                    <div class="flex-grow-1">
+                                        <div class="input-group shadow-sm">
+                                            <span class="input-group-text bg-white text-primary border-end-0 shadow-none">
+                                                <i class="fas fa-search"></i>
+                                            </span>
+                                            <input type="search" 
+                                                name="search_product" 
+                                                class="form-control border-start-0 shadow-none" 
+                                                placeholder="Поиск товаров"
+                                                value="{{ search or '' }}">
+                                        </div>
+                                    </div>
+                                    <button type="submit" class="btn btn-light px-3 py-2 shadow-sm">
+                                        <i class="fas fa-search"></i>
+                                    </button>
+                                    {% if search %}
+                                    <a href="/admin?tab=products" class="btn btn-outline-light px-3 py-2 shadow-sm">
+                                        <i class="fas fa-times"></i>
+                                    </a>
+                                    {% endif %}
+                                </form>
+                            </div>
+                            <div class="modal fade" id="iherbModal" tabindex="-1">
+                                <div class="modal-dialog">
+                                    <div class="modal-content">
+                                        <div class="modal-header">
+                                            <h5 class="modal-title">Импорт товара с iHerb</h5>
+                                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                        </div>
+                                        <form action="/admin/products/iherb-import" method="POST" enctype="multipart/form-data">
 
-    <!-- *** МОДАЛЬНОЕ ОКНО iHerb *** -->
-    <div class="modal fade" id="iherbModal" tabindex="-1">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">Импорт товара с iHerb</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <form action="/admin/products/iherb-import" method="POST" enctype="multipart/form-data">
-
-                    <div class="modal-body">
-                        <div class="mb-3">
-                            <label class="form-label">URL товара iHerb</label>
-                            <input type="url" name="url" class="form-control" 
-                                   placeholder="https://ru.iherb.com/pr/21st-century-calcium-magnesium-zinc-d3-90-tablets/10695"
-                                   required>
-                            <div class="form-text">Вставь ссылку на товар — автоматически спарсим название, цену, фото, описание</div>
-                        </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
-                        <button type="submit" class="btn btn-info">
-                            <i class="fas fa-magic me-1"></i>Спарсить и добавить
-                        </button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-
-    <!-- Остальной код таблицы товаров... -->
-
-                            <div class="table-responsive">
-                                <h4>Активные</h4>
+                                            <div class="modal-body">
+                                                <div class="mb-3">
+                                                    <label class="form-label">URL товара iHerb</label>
+                                                    <input type="url" name="url" class="form-control" 
+                                                        required>
+                                                    <div class="form-text">Вставь ссылку на товар</div>
+                                                </div>
+                                            </div>
+                                            <div class="modal-footer">
+                                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                                                <button type="submit" class="btn btn-info">
+                                                    <i class="fas fa-magic me-1"></i>Спарсить и добавить
+                                                </button>
+                                            </div>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="table-container">
+                                <h4 id="active">Активные</h4>
+                                <div class="mb-3">
+                                    <div class="row align-items-center">
+                                        <div class="col-auto">
+                                            Показать: 
+                                            <select class="form-select form-select-sm d-inline-block w-auto" 
+                                                    style="width: auto;" 
+                                                    onchange="window.location.href=this.options[this.selectedIndex].dataset.url  + '#active'">
+                                                {% for size, url in pagination_active.page_size_urls.items() %}
+                                                <option value="{{ size }}" 
+                                                        data-url="{{ url }}" 
+                                                        {{ 'selected' if size == pagination_active.page_size else '' }}>
+                                                    {{ size }}
+                                                </option>
+                                                {% endfor %}
+                                            </select>
+                                        </div>
+                                        <div class="col-auto ms-auto">
+                                            Страница {{ pagination_active.page }} из {{ pagination_active.total_pages }} ({{ pagination_active.total }} товаров)
+                                        </div>
+                                    </div>
+                                </div>
                                 <table class="table table-hover">
                                     <thead class="table-dark">
                                         <tr>
-                                            <th>ID</th>
-                                            <th>Изображение</th>
-                                            <th>Название</th>
-                                            <th>Шт</th>
-                                            <th>Цена</th>
-                                            <th>Действия</th>
+                                            <th>ID</th><th>Изображение</th><th>Название</th><th>Шт</th><th>Цена</th><th>Действия</th>
                                         </tr>
                                     </thead>
                                     <tbody>
                                         {% for product in products %}
                                         <tr>
                                             <td>{{ product.id }}</td>
-                                            <td>
-                                                <img src="{{ product.image_url or '/static/no-image.jpg' }}" 
-                                                     width="50" class="rounded">
-                                            </td>
+                                            <td><img src="{{ product.image_url or '/static/no-image.jpg' }}" width="50" class="rounded"></td>
                                             <td>{{ product.brand }}, {{ product.name }}</td>
-                                            <td>{{ product.stock  }}</td>
+                                            <td>{{ product.stock }}</td>
                                             <td>{{ "%.2f"|format(product.price) }}</td>
                                             <td>
-                                                <a href="/admin/products/{{ product.id }}/edit?tab=products" 
-                                                   class="btn btn-sm btn-outline-primary">
-                                                    Изменить
-                                                </a>
-                                                <form action="/admin/products/{{ product.id }}/delete?tab=products" 
-                                                      method="post" class="d-inline">
-                                                    <button class="btn btn-sm btn-danger" type="submit" 
-                                                            onclick="return confirm('Удалить товар?')">
+                                                <a href="/admin/products/{{ product.id }}/edit?tab=products" class="btn btn-sm btn-outline-primary">Изменить</a>
+                                                <form action="/admin/products/{{ product.id }}/delete?tab=products" method="post" class="d-inline">
+                                                    <button class="btn btn-sm btn-danger" type="submit" onclick="return confirm('Удалить товар?')">
                                                         <i class="fas fa-trash me-1"></i>Удалить
                                                     </button>
                                                 </form>
@@ -181,38 +202,47 @@
                                         {% endfor %}
                                     </tbody>
                                 </table>
-                                <h4>Не активные</h4>
+                                {% if pagination_active.total_pages > 1 %}
+                                    {{ render_pagination(pagination_active, "Active Products", "flex-wrap") }}
+                                {% endif %}
+                                <div class="mb-3">
+                                    <h4 id="inactive">Не активные</h4>
+                                    <div class="row align-items-center">
+                                        <div class="col-auto">
+                                            Показать: 
+                                            <select class="form-select form-select-sm d-inline-block w-auto" 
+                                                    style="width: auto;" 
+                                                    onchange="window.location.href=this.options[this.selectedIndex].dataset.url + '#inactive'">
+                                                {% for size, url in pagination_inactive.page_size_urls.items() %}
+                                                <option value="{{ size }}" data-url="{{ url }}" {{ 'selected' if size == pagination_inactive.page_size else '' }}>
+                                                    {{ size }}
+                                                </option>
+                                                {% endfor %}
+                                            </select>
+                                        </div>
+                                        <div class="col-auto ms-auto">
+                                            Страница {{ pagination_inactive.page }} из {{ pagination_inactive.total_pages }} ({{ pagination_inactive.total }} товаров)
+                                        </div>
+                                    </div>
+                                </div>
                                 <table class="table table-hover">
                                     <thead class="table-dark">
                                         <tr>
-                                            <th>ID</th>
-                                            <th>Изображение</th>
-                                            <th>Название</th>
-                                            <th>Шт</th>
-                                            <th>Цена</th>
-                                            <th>Действия</th>
+                                            <th>ID</th><th>Изображение</th><th>Название</th><th>Шт</th><th>Цена</th><th>Действия</th>
                                         </tr>
                                     </thead>
                                     <tbody>
                                         {% for product_not_active in products_not_active %}
                                         <tr>
                                             <td>{{ product_not_active.id }}</td>
-                                            <td>
-                                                <img src="{{ product_not_active.image_url or '/static/no-image.jpg' }}" 
-                                                     width="50" class="rounded">
-                                            </td>
+                                            <td><img src="{{ product_not_active.image_url or '/static/no-image.jpg' }}" width="50" class="rounded"></td>
                                             <td>{{ product_not_active.brand }}, {{ product_not_active.name }}</td>
-                                            <td>{{ product_not_active.stock  }}</td>
+                                            <td>{{ product_not_active.stock }}</td>
                                             <td>{{ "%.2f"|format(product_not_active.price) }}</td>
                                             <td>
-                                                <a href="/admin/products/{{ product_not_active.id }}/edit?tab=products" 
-                                                   class="btn btn-sm btn-outline-primary">
-                                                    Изменить
-                                                </a>
-                                                <form action="/admin/products/{{ product_not_active.id }}/delete?tab=products" 
-                                                      method="post" class="d-inline">
-                                                    <button class="btn btn-sm btn-danger" type="submit" 
-                                                            onclick="return confirm('Удалить товар?')">
+                                                <a href="/admin/products/{{ product_not_active.id }}/edit?tab=products" class="btn btn-sm btn-outline-primary">Изменить</a>
+                                                <form action="/admin/products/{{ product_not_active.id }}/delete?tab=products" method="post" class="d-inline">
+                                                    <button class="btn btn-sm btn-danger" type="submit" onclick="return confirm('Удалить товар?')">
                                                         <i class="fas fa-trash me-1"></i>Удалить
                                                     </button>
                                                 </form>
@@ -221,6 +251,9 @@
                                         {% endfor %}
                                     </tbody>
                                 </table>
+                                {% if pagination_inactive.total_pages > 1 %}
+                                    {{ render_pagination(pagination_inactive, "Inactive Products", "flex-wrap") }}
+                                {% endif %}
                             </div>
                         </div>
                         <div class="tab-pane fade {{ 'show active' if tab == 'orders' else '' }}" id="orders">
@@ -245,7 +278,7 @@
                                             </select>
                                         </div>
                                     </div>
-                            <div class="table-responsive">
+                            <div class="table-container">
                                 <table class="table table-hover">
                                     <thead class="table-dark">
                                         <tr>

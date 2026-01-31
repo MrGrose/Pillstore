@@ -35,7 +35,7 @@ class ProductService:
         request: Request,
         category_id: int | None = None,
     ) -> ProductPagination:
-        return await self.crud.pagination_page_products(
+        return await self.crud.paginate_products(
             page, page_size, search, request, category_id
         )
 
@@ -92,7 +92,7 @@ class ProductService:
             name=product_data.name or "",
             name_en=product_data.name_en or "",
             brand=product_data.brand or "",
-            price=Decimal(str(round(product_data.price or 0.0, 2))),
+            price=Decimal(str(round(product_data.price or 0.01, 2))),
             url=product_data.url or "",
             stock=product_data.stock or 0,
             is_active=False,
@@ -129,3 +129,39 @@ class ProductService:
         await self.session.commit()
 
         return f"ID {db_product.id} {product_create.name} импортирован", "success"
+
+    async def get_products_page_active(
+        self,
+        page_active: int,
+        page_size_active: int,
+        search: str | None,
+        request: Request,
+        category_id: int | None = None,
+    ) -> ProductPagination:
+        return await self.crud.paginate_products(
+            page_active,
+            page_size_active,
+            search,
+            request,
+            category_id,
+            is_active=True,
+            tab_prefix="page_active",
+        )
+
+    async def get_products_page_inactive(
+        self,
+        page_inactive: int,
+        page_size_inactive: int,
+        search: str | None,
+        request: Request,
+        category_id: int | None = None,
+    ) -> ProductPagination:
+        return await self.crud.paginate_products(
+            page_inactive,
+            page_size_inactive,
+            search,
+            request,
+            category_id,
+            is_active=False,
+            tab_prefix="page_inactive",
+        )

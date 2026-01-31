@@ -1,0 +1,44 @@
+{% macro render_pagination(pagination, label="Pagination", wrapper_class="") %}
+<nav aria-label="{{ label }}" class="mt-3">
+    <ul class="pagination justify-content-center {{ wrapper_class }}">
+        {% if pagination.page > 1 %}
+        <li class="page-item">
+            <a class="page-link" href="{{ pagination.page_urls.first_url }}">Первая</a>
+        </li>
+        {% endif %}
+        {% if pagination.page > 1 %}
+        <li class="page-item">
+            <a class="page-link" href="{{ pagination.page_urls.prev_url }}">←</a>
+        </li>
+        {% endif %}
+        {% if pagination.page > 3 %}
+        <li class="page-item">
+            <a class="page-link" href="{{ pagination.page_urls.page_urls[1] }}">1</a>
+        </li>
+        <li class="page-item disabled"><span class="page-link">...</span></li>
+        {% endif %}
+        {% for offset in [-2,-1,0,1,2] %}
+            {% set page_num = pagination.page + offset %}
+            {% if page_num >= 1 and page_num <= pagination.total_pages %}
+            <li class="page-item {{ 'active' if page_num == pagination.page else '' }}">
+                <a class="page-link" href="{{ pagination.page_urls.page_urls[page_num] }}">{{ page_num }}</a>
+            </li>
+            {% endif %}
+        {% endfor %}
+        {% if pagination.page + 2 < pagination.total_pages %}
+        <li class="page-item disabled"><span class="page-link">...</span></li>
+        <li class="page-item">
+            <a class="page-link" href="{{ pagination.page_urls.last_url }}">{{ pagination.total_pages }}</a>
+        </li>
+        {% endif %}
+        {% if pagination.page < pagination.total_pages %}
+        <li class="page-item">
+            <a class="page-link" href="{{ pagination.page_urls.next_url }}">→</a>
+        </li>
+        <li class="page-item">
+            <a class="page-link" href="{{ pagination.page_urls.last_url }}">Последняя</a>
+        </li>
+        {% endif %}
+    </ul>
+</nav>
+{% endmacro %}

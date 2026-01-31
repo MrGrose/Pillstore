@@ -9,8 +9,11 @@
             <h1 class="display-4 fw-bold mb-4">Тут что то будет</h1>
             <p class="lead mb-4">Тут что то будет</p>
             <form class="d-flex w-100 mx-auto" method="get" action="/products" style="max-width: 600px;">
-                <input class="form-control me-2 flex-grow-1" type="search" placeholder="Поиск товаров..." 
-                    name="search_product" value="{{ search or '' }}"> 
+                <input class="form-control me-2 flex-grow-1" 
+                    type="search"
+                    placeholder="Поиск товаров..." 
+                    name="search_product" 
+                    value="{{ search or '' }}"> 
                 <button class="btn btn-primary px-3" type="submit">
                     <i class="fas fa-search"></i>
                 </button>
@@ -128,34 +131,8 @@
                 </div>
             {% endfor %}
         </div>
-            {% if pagination.total_pages > 1 %}
-            <nav aria-label="Pagination" class="mt-5">
-                <ul class="pagination justify-content-center">
-                    {% if pagination.page > 1 %}
-                    <li class="page-item">
-                        <a class="page-link" href="{{ pagination.page_urls.first_url }}">Первая</a>
-                    </li>
-                    <li class="page-item">
-                        <a class="page-link" href="{{ pagination.page_urls.prev_url }}">←</a>
-                    </li>
-                    {% endif %}
-                    {% for page_num, url in pagination.page_urls.page_urls.items() %}
-                        {% if loop.index <= 5 or (page_num >= pagination.page - 1 and page_num <= pagination.page + 1) %}
-                        <li class="page-item {{ 'active' if page_num == pagination.page else '' }}">
-                            <a class="page-link" href="{{ url }}">{{ page_num }}</a>
-                        </li>
-                        {% endif %}
-                    {% endfor %}
-                    {% if pagination.page < pagination.total_pages %}
-                    <li class="page-item">
-                        <a class="page-link" href="{{ pagination.page_urls.next_url }}">→</a>
-                    </li>
-                    <li class="page-item">
-                        <a class="page-link" href="{{ pagination.page_urls.last_url }}">Последняя</a>
-                    </li>
-                    {% endif %}
-                </ul>
-            </nav>
+        {% if pagination.total_pages > 1 %}
+            {{ render_pagination(pagination) }}
         {% endif %}
     </div>
 </section>

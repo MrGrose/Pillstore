@@ -27,6 +27,7 @@ from app.services.admin_service import AdminService
 from app.services.user_service import UserService
 
 from app.schemas.product import ProductCreate, ProductUpdate
+from app.services.product_service import ProductService
 
 router = APIRouter(prefix="/admin", tags=["Admin panel"])
 
@@ -41,10 +42,24 @@ async def admin_page(
     message: str = Query(None),
     message_type: str = Query("info"),
     status_filter: str = Query(None),
+    page_active: int = Query(1, ge=1),
+    page_size_active: int = Query(20, ge=1, le=100),
+    search_product: str | None = Query(None),
+    category_id: int = Query(None),
+    page_inactive: int = Query(1, ge=1),
+    page_size_inactive: int = Query(20, ge=1, le=100),
 ):
+    product_svc = ProductService(db)
+    pagination_active = await product_svc.get_products_page_active(
+        page_active, page_size_active, search_product, request, category_id
+    )
+    pagination_inactive = await product_svc.get_products_page_inactive(
+        page_inactive, page_size_inactive, search_product, request, category_id
+    )
     flash_message = {"text": message, "type": message_type} if message else None
     admin_svc = AdminService(db)
     dashboard_stats = await admin_svc.get_admin_page(status_filter)
+
     return templates.TemplateResponse(
         "/admin/admin.html",
         {
@@ -55,6 +70,13 @@ async def admin_page(
             "tab": tab,
             "flash_message": flash_message,
             "status_filter": status_filter,
+            "products": pagination_active.items,
+            "products_not_active": pagination_inactive.items,
+            "pagination_active": pagination_active,
+            "pagination_inactive": pagination_inactive,
+            "search": search_product,
+            "active_category_id": category_id,
+            "pagination": pagination_active,
         },
     )
 
