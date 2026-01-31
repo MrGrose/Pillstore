@@ -15,7 +15,7 @@
 <div class="container-fluid py-4">
     <div class="row">
         <div class="col-md-3">
-            <div class="card sticky-top" style="top: 20px;">
+            <div class="card sticky-top" style="top: 100px;">
                 <div class="list-group list-group-flush">
                     <a href="/admin?tab=dashboard" class="list-group-item list-group-item-action {{ 'active' if tab == 'dashboard' else '' }}">
                         <i class="fas fa-chart-bar me-2"></i>Дашборд
@@ -29,12 +29,8 @@
                     <a href="/admin?tab=users" class="list-group-item list-group-item-action {{ 'active' if tab == 'users' else '' }}">
                         <i class="fas fa-users me-2"></i>Пользователи
                     </a>
-                </div>
-            </div>
-            <div class="card mt-3">
-                <div class="card-body text-center">
-                    <a href="/profile" class="btn btn-outline-secondary w-100">
-                        <i class="fas fa-user me-2"></i>Личный кабинет
+                    <a href="/profile" class="list-group-item list-group-item-action">
+                        <i class="fas fa-user-circle me-2"></i>Личный кабинет
                     </a>
                 </div>
             </div>
