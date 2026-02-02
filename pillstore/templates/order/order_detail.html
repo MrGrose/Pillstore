@@ -4,6 +4,18 @@
 
 {% block content %}
 
+{% if request.query_params.get('confirmed') %}
+<div class="alert alert-success order-success-alert animate__animated animate__fadeIn" role="alert">
+    <div class="d-flex align-items-center">
+        <i class="fas fa-check-circle text-success me-3 fs-1"></i>
+        <div>
+            <h4>Заказ #{{ order.id }} принят!</h4>
+            <p>Мы свяжемся в течение 45 минут</p>
+        </div>
+    </div>
+</div>
+{% endif %}
+
 <div class="container py-5">
     <div class="row justify-content-center">
         <div class="col-lg-10">
@@ -113,10 +125,10 @@
                             <h5 class="mb-2">
                                 {% if order.status == 'paid' or order.status == 'completed' %}
                                     <i class="fas fa-check-circle text-success me-2"></i>
-                                    Оплачено ✅
+                                    Оплачено
                                 {% else %}
                                     <i class="fas fa-clock text-warning me-2"></i>
-                                    Ожидает оплаты ⏳
+                                    Ожидает оплаты
                                 {% endif %}
                             </h5>
                         </div>
