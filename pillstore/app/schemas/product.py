@@ -1,3 +1,4 @@
+from datetime import datetime
 from decimal import Decimal
 from fastapi.exceptions import RequestValidationError
 from typing import Annotated
@@ -142,3 +143,5 @@ class ProductUpdate(BaseModel):
     category_ids: list[int] = []
     description_left: str = ""
     description_right: str = ""
+    created_at: datetime | None
+    expiry_at: datetime | None
