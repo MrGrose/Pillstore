@@ -1,4 +1,5 @@
-from sqlalchemy import  ARRAY, Boolean, String, Numeric, Integer, Text
+from datetime import datetime
+from sqlalchemy import  ARRAY, Boolean, DateTime, String, Numeric, Integer, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy import ForeignKey, Computed, Index
 from app.db.base import Base
@@ -27,6 +28,9 @@ class Product(Base):
     description_left: Mapped[str | None] = mapped_column(Text)
     description_right: Mapped[str | None] = mapped_column(Text)
     mpn: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=True, server_default=func.now())
+    expiry_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     
     categories = relationship("Category", secondary=product_categories, back_populates="products")
     category_id: Mapped[list[int] | None] = mapped_column(
