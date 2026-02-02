@@ -1,3 +1,4 @@
+from datetime import datetime
 from decimal import Decimal
 
 from fastapi import (
@@ -138,17 +139,35 @@ async def edit_product_form(
     admin_svc = AdminService(db)
     product = await admin_svc.product_crud.get_by_id_with_categories(product_id)
     categories = await category_svc.get_all_categories()
-    return templates.TemplateResponse(
-        "admin/product_edit.html",
-        {
-            "request": request,
-            "product": product,
-            "tab": tab,
-            "action_url": f"/admin/products/{product_id}",
-            "categories": categories,
-            "current_user": current_user,
-        },
-    )
+    context = {
+        "request": request,
+        "product": product,
+        "tab": tab,
+        "action_url": f"/admin/products/{product_id}",
+        "categories": categories,
+        "current_user": current_user,
+        "created_at_iso": (
+            product.created_at.strftime("%Y-%m-%dT%H:%M")
+            if product and product.created_at
+            else ""
+        ),
+        "expiry_at_iso": (
+            product.expiry_at.strftime("%Y-%m-%d")
+            if product and product.expiry_at
+            else ""
+        ),
+        "created_at_display": (
+            product.created_at.strftime("%d.%m.%Y %H:%M")
+            if product and product.created_at
+            else "Не указана"
+        ),
+        "expiry_at_display": (
+            product.expiry_at.strftime("%d.%m.%Y")
+            if product and product.expiry_at
+            else "Не указан"
+        ),
+    }
+    return templates.TemplateResponse("admin/product_edit.html", context)
 
 
 @router.get("/products/new", response_class=HTMLResponse)
@@ -187,18 +206,24 @@ async def admin_product_update(
     description_right: str = Form(None),
     is_active: bool = Form(True),
     image: UploadFile | None = File(None),
+    created_at: str = Form(None),
+    expiry_at: str = Form(None),
     db: AsyncSession = Depends(get_db),
 ):
+    parsed_created_at = datetime.fromisoformat(created_at) if created_at else None
+    parsed_expiry_at = datetime.fromisoformat(expiry_at).date() if expiry_at else None
     data = ProductUpdate(
         name=name,
         name_en=name_en,
-        brand=brand,
+        brand=brand or "",
         price=price,
         stock=stock,
         is_active=is_active,
         category_ids=category_ids,
-        description_left=description_left,
-        description_right=description_right,
+        description_left=description_left or "",
+        description_right=description_right or "",
+        created_at=parsed_created_at,
+        expiry_at=parsed_expiry_at,
     )
     admin_svc = AdminService(db)
     msg, msg_type = await admin_svc.update_product_admin(
