@@ -47,8 +47,24 @@ async def payment_page(
     order = await order_svc.get_order_for_payment(order_id, current_user.id)
 
     return templates.TemplateResponse(
-        "payment.html", {"request": request, "order": order}
+        "payment.html",
+        {
+            "request": request,
+            "order": order,
+            "current_user": current_user,
+        },
     )
+
+
+@router.post("/{order_id}/confirm")
+async def confirm_order_payment(
+    order_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: UserModel = Depends(get_current_user),
+):
+    order_service = OrderService(db)
+    await order_service.confirm_payment(order_id, current_user.id)
+    return RedirectResponse(f"/orders/{order_id}?confirmed=true", status_code=303)
 
 
 @router.get("/cart", response_class=HTMLResponse)

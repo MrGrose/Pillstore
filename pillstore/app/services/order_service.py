@@ -27,7 +27,7 @@ class OrderService:
                 detail="Пустая корзина",
             )
 
-        order = Order(user_id=current_user.id)
+        order = Order(user_id=current_user.id, status="pending")
         total_amount = Decimal("0")
 
         for cart_item in cart_items:
@@ -43,14 +43,6 @@ class OrderService:
                     detail=f"Недостаточно товара на складе {product.name}",
                 )
 
-            unit_price = product.price
-            if unit_price is None:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"Продукт {product.name} не имеет цену",
-                )
-            total_price = unit_price * cart_item.quantity
-
             order_item = OrderItem(
                 product_id=cart_item.product_id,
                 quantity=cart_item.quantity,
@@ -58,23 +50,42 @@ class OrderService:
                 total_price=product.price * cart_item.quantity,
             )
             order.items.append(order_item)
-            product.stock -= cart_item.quantity
-            total_amount += total_price
+            total_amount += cart_item.quantity * product.price
 
         order.total_amount = total_amount
-
         self.session.add(order)
         await self.cart_crud.delete_cart_by_user(current_user.id)
         await self.session.commit()
 
-        created_order = await self.order_crud.get_order_with_items(order.id)
-        if not created_order:
+        return order.id
+
+    async def confirm_payment(self, order_id: int, user_id: int) -> Order:
+        order = await self.order_crud.get_order_with_items(order_id)
+        if not order:
             raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Заказ не создан",
+                status_code=status.HTTP_404_NOT_FOUND, detail="Заказ не найден"
+            )
+        if order.user_id != user_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN, detail="Нет доступа"
+            )
+        if order.status != "pending":
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail="Заказ уже подтвержден"
             )
 
-        return order.id
+        for item in order.items:
+            product = await self.product_crud.get_by_id(item.product_id)
+            if product.stock < item.quantity:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Товара {product.name} больше нет",
+                )
+            product.stock -= item.quantity
+
+        order.status = "pending"
+        await self.session.commit()
+        return order
 
     async def get_order_for_payment(self, order_id: int, user_id: int) -> Order:
         order = await self.order_crud.get_order_with_items(order_id)
