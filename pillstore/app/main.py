@@ -10,7 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.core.init import lifespan
 from app.core.logger import LoggingMiddleware
 
-from app.routers import products, users, orders, auth, profile, admin, errors, scraper
+from app.routers import products, orders, auth, profile, admin, errors, scraper
 from app.api import api_products
 
 from app.exceptions.handlers import setup_html_error_handlers
@@ -20,7 +20,6 @@ tags_metadata = [
     {"name": "API v2 Products"},
     {"name": "Products"},
     {"name": "Auth"},
-    {"name": "Users"},
     {"name": "Orders"},
     {"name": "Admin"},
     {"name": "Profile"},
@@ -75,7 +74,6 @@ async def root_redirect():
 app.include_router(scraper.router, tags=["Scraper"])
 app.include_router(auth.auth_router, tags=["Auth"])
 app.include_router(products.router, tags=["Products"])
-app.include_router(users.router, tags=["Users"])
 app.include_router(orders.router, tags=["Orders"])
 app.include_router(admin.router, prefix="/admin", tags=["Admin"])
 app.include_router(profile.router, prefix="/profile", tags=["Profile"])

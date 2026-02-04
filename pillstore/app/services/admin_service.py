@@ -10,7 +10,7 @@ from app.models.products import Product
 from app.db_crud.user_crud import CrudUser
 from app.db_crud.admin_crud import CrudAdmin
 
-from app.services.utils import remove_product_image, save_product_image
+from app.utils.utils import remove_product_image, save_product_image
 from app.schemas.product import ProductCreate, ProductUpdate
 from app.db_crud.category_crud import CrudCategory
 from app.models.categories import Category

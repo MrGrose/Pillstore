@@ -16,8 +16,8 @@ from app.schemas.category import CategoryTreeOut
 
 from app.exceptions.handlers import ProductNotFoundError
 
-from app.services.utils import formatted_description, save_image_from_url
-from app.services.iherb_scraper import IHerbScraper
+from app.utils.utils import formatted_description, save_image_from_url
+from app.utils.iherb_scraper import IHerbScraper
 
 
 class ProductService:

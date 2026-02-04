@@ -19,7 +19,7 @@ from app.services.cart_service import CartService
 from app.services.product_service import ProductService
 
 
-router = APIRouter(prefix="/orders", tags=["orders"])
+router = APIRouter(prefix="/orders")
 
 
 @router.post(

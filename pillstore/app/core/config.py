@@ -11,3 +11,4 @@ load_dotenv()
 SECRET_KEY = os.getenv("SECRET_KEY")
 ALGORITHM = "HS256"
 PAGINATION_SIZES = [10, 20, 50, 100]
+MAX_AGE = 86400

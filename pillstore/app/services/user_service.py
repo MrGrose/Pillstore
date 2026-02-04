@@ -1,9 +1,10 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 
+
 from app.models.users import User
 from app.db_crud.user_crud import CrudUser
 
-from app.core.security import pwd_context
+from app.core.security import verify_password, create_access_token, hash_password
 from app.exceptions.handlers import (
     UserNotFoundError,
     BusinessError,
@@ -24,7 +25,7 @@ class UserService:
     ) -> tuple[str, int] | str:
         if await self.user_crud.check_user_email(email):
             raise BusinessError("Пользователь", f"{email} уже существует")
-        hashed_password = pwd_context.hash(password)
+        hashed_password = hash_password(password)
         user_dict = {"email": email, "hashed_password": hashed_password, "role": role}
         user = await self.user_crud.create(user_dict)
         return f"Пользователь {user.email} создан"
@@ -41,7 +42,7 @@ class UserService:
 
         update_data = {"email": email, "role": role}
         if password:
-            update_data["hashed_password"] = pwd_context.hash(password)
+            update_data["hashed_password"] = hash_password(password)
 
         updated_user = await self.user_crud.update(user, update_data)
         return f"Пользователь {updated_user.email} обновлен"
@@ -50,12 +51,37 @@ class UserService:
         user = await self.user_crud.get_by_id(user_id)
         if not user:
             raise UserNotFoundError(user_id)
-
         await self.user_crud.delete(user_id)
-        return f"Пользователь {user.email} (ID {user.id}) удален"
+        return f"Пользователь {user.email} (ID {user_id}) удален"
 
     async def get_user_for_edit(self, user_id: int) -> tuple[str, int] | User:
         user = await self.user_crud.get_by_id(user_id)
         if not user:
             raise UserNotFoundError(user_id)
         return user
+
+    async def authenticate_user(self, email: str, password: str) -> str:
+        user = await self.user_crud.check_user_email(email)
+        if not user or not verify_password(password, user.hashed_password):
+            raise BusinessError("Авторизация", "Неверный email или пароль")
+        return create_access_token(
+            {"sub": user.email, "role": user.role, "id": user.id}
+        )
+
+    async def register_user(self, email: str, password: str, role: str) -> User:
+        hashed_pw = hash_password(password)
+        user_email = await self.user_crud.check_user_email(email)
+        if user_email:
+            raise BusinessError("Пользователь", f"{email} уже зарегистрирован")
+        user_dict = {"email": email, "hashed_password": hashed_pw, "role": role}
+        user = await self.user_crud.create(user_dict)
+        return user
+
+    async def validate_registration_data(self, email: str, password: str) -> list[str]:
+        errors: list[str] = []
+        if "@" not in email or not email.endswith((".com", ".ru", ".de")):
+            errors.append("Некорректный email")
+        if len(password) < 6:
+            errors.append("Пароль не короче 6 символов")
+
+        return errors if errors else []

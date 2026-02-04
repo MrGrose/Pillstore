@@ -30,7 +30,7 @@ from app.services.user_service import UserService
 from app.schemas.product import ProductCreate, ProductUpdate
 from app.services.product_service import ProductService
 
-router = APIRouter(prefix="/admin", tags=["Admin panel"])
+router = APIRouter()
 
 
 @router.get("", response_class=HTMLResponse)

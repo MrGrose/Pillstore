@@ -11,7 +11,7 @@ from app.core.security import get_current_user
 
 from app.services.profile_service import ProfileService
 
-router = APIRouter(tags=["Profile"])
+router = APIRouter()
 
 
 @router.get("/", response_class=HTMLResponse, name="profile_page")
@@ -24,11 +24,11 @@ async def profile_page(
     orders = await profile_svc.get_orders_profile(current_user)
 
     return templates.TemplateResponse(
-        "/profile/profile.html", 
+        "/profile/profile.html",
         {
             "current_user": current_user,
             "orders": orders,
             "request": request,
             "cart_count": 0,
-        }
+        },
     )

@@ -11,9 +11,9 @@ from app.services.product_service import ProductService
 from app.services.cart_service import CartService
 
 
-router = APIRouter(prefix="/products", tags=["Web products"])
+router = APIRouter(prefix="/products")
 
-    
+
 @router.get("", response_class=HTMLResponse)
 async def products_page(
     request: Request,
@@ -22,14 +22,16 @@ async def products_page(
     search_product: str | None = Query(None),
     category_id: int = Query(None),
     db: AsyncSession = Depends(get_db),
-    current_user: User| None = Depends(get_current_user_optional),
+    current_user: User | None = Depends(get_current_user_optional),
 ):
     product_svc = ProductService(db)
     cart_svc = CartService(db)
-    pagination = await product_svc.get_products_page(page, page_size, search_product, request, category_id)
+    pagination = await product_svc.get_products_page(
+        page, page_size, search_product, request, category_id
+    )
     cart_count = await cart_svc.cart_count(current_user, pagination.items)
     flat_tree = await product_svc.get_flat_tree()
-    
+
     return templates.TemplateResponse(
         "index.html",
         {
@@ -40,7 +42,7 @@ async def products_page(
             "search": search_product,
             "flat_tree": flat_tree,
             "active_category_id": category_id,
-        }
+        },
     )
 
 
@@ -49,7 +51,7 @@ async def product_detail(
     product_id: int,
     request: Request,
     db: AsyncSession = Depends(get_db),
-    current_user: User| None = Depends(get_current_user_optional),
+    current_user: User | None = Depends(get_current_user_optional),
 ):
     product_svc = ProductService(db)
     cart_svc = CartService(db)
@@ -62,9 +64,9 @@ async def product_detail(
             "product": product,
             "current_user": current_user,
             "cart_count": cart_count,
-        }
+        },
     )
-    
+
 
 @router.get("/api/stock/{product_id}")
 async def get_stock(product_id: int, db: AsyncSession = Depends(get_db)):
