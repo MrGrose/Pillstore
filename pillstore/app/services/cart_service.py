@@ -1,5 +1,4 @@
 from datetime import datetime, timezone
-from fastapi import HTTPException, status
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -11,6 +10,11 @@ from app.models.users import User
 from app.models.products import Product
 
 from app.schemas.product import ProductRead
+from app.exceptions.handlers import (
+    ProductNotFoundError,
+    CartNotFoundError,
+    BusinessError,
+)
 
 
 class CartService:
@@ -25,10 +29,12 @@ class CartService:
     async def add_to_cart(self, user: User, product_id: int, quantity: int) -> dict:
         current_qty = await self.crud.get_cart_quantity(user.id, product_id)
         product = await self.product_crud.get_by_id(product_id)
+        if not product:
+            raise ProductNotFoundError(product_id)
         total_qty = current_qty + quantity
 
         if total_qty > product.stock:
-            raise HTTPException(400, f"Макс еще: {product.stock - current_qty}")
+            raise BusinessError("Корзина", f"Макс еще: {product.stock - current_qty}")
 
         await self.crud.add_or_update(user.id, product_id, total_qty)
         return {"cart_qty": total_qty}
@@ -44,7 +50,7 @@ class CartService:
         cart_item = await self.crud.get_cart_item_by_id(user_id, item_id)
 
         if not cart_item:
-            raise HTTPException(status.HTTP_404_NOT_FOUND, "Нет товара в корзине")
+            raise CartNotFoundError(item_id)
 
         await self.session.delete(cart_item)
         await self.session.commit()

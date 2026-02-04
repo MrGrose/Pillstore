@@ -1,4 +1,4 @@
-from fastapi import HTTPException, UploadFile, status
+from fastapi import UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db_crud.products_crud import CrudProduct
@@ -14,6 +14,12 @@ from app.services.utils import remove_product_image, save_product_image
 from app.schemas.product import ProductCreate, ProductUpdate
 from app.db_crud.category_crud import CrudCategory
 from app.models.categories import Category
+
+from app.exceptions.handlers import (
+    OrderNotFoundError,
+    ProductNotFoundError,
+    BusinessError,
+)
 
 
 class AdminService:
@@ -50,14 +56,10 @@ class AdminService:
     async def order_status_admin(self, order_id: int, new_status: str) -> None:
         order = await self.order_crud.get_order(order_id)
         if not order:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail="Заказ не найден"
-            )
+            raise OrderNotFoundError(order_id)
 
         if new_status not in ["pending", "paid", "transit"]:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST, detail="Неверный статус"
-            )
+            raise BusinessError("Заказ", "Неверный статус")
 
         order.status = new_status
         await self.session.commit()
@@ -65,9 +67,7 @@ class AdminService:
     async def remove_order_admin(self, order_id: int) -> None:
         order = await self.order_crud.get_order(order_id, load_products=True)
         if not order:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST, detail="Заказ не найден"
-            )
+            raise OrderNotFoundError(order_id)
 
         for item in order.items:
             if item.product:
@@ -81,6 +81,8 @@ class AdminService:
 
     async def remove_product_admin(self, product_id: int) -> str:
         product = await self.product_crud.get_by_id(product_id)
+        if not product:
+            raise ProductNotFoundError(product_id)
         if product.image_url:
             remove_product_image(product.image_url)
         await self.product_crud.delete(product.id)
@@ -95,7 +97,8 @@ class AdminService:
         image: UploadFile | None = None,
     ) -> tuple[str, str]:
         product = await self.product_crud.update_product(product_id, data)
-
+        if not product:
+            raise ProductNotFoundError(product_id)
         if image and image.filename:
             if product.image_url:
                 remove_product_image(product.image_url)

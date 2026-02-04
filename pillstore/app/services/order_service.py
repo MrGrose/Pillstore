@@ -1,5 +1,4 @@
 from decimal import Decimal
-from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db_crud.cart_crud import CrudCart
@@ -10,6 +9,12 @@ from app.models.cart_items import CartItem
 from app.models.orders import Order, OrderItem
 from app.models.users import User as UserModel
 from app.models.products import Product
+from app.exceptions.handlers import (
+    ProductNotFoundError,
+    OrderNotFoundError,
+    CartNotFoundError,
+    BusinessError,
+)
 
 
 class OrderService:
@@ -22,10 +27,8 @@ class OrderService:
     async def get_checkout_order(self, current_user) -> int:
         cart_items = await self.cart_crud.get_cart_items(current_user.id)
         if not cart_items:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Пустая корзина",
-            )
+
+            raise CartNotFoundError(current_user.id)
 
         order = Order(user_id=current_user.id, status="pending")
         total_amount = Decimal("0")
@@ -33,14 +36,12 @@ class OrderService:
         for cart_item in cart_items:
             product = cart_item.product
             if not product or not product.is_active:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"Продукт {cart_item.product_id} не доступен",
+                raise BusinessError(
+                    "Заказ", f"Продукт {cart_item.product_id} не доступен"
                 )
             if product.stock < cart_item.quantity:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"Недостаточно товара на складе {product.name}",
+                raise BusinessError(
+                    "Заказ", f"Недостаточно товара на складе {product.name}"
                 )
 
             order_item = OrderItem(
@@ -62,25 +63,16 @@ class OrderService:
     async def confirm_payment(self, order_id: int, user_id: int) -> Order:
         order = await self.order_crud.get_order_with_items(order_id)
         if not order:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail="Заказ не найден"
-            )
+            raise OrderNotFoundError(order_id)
         if order.user_id != user_id:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN, detail="Нет доступа"
-            )
+            raise BusinessError("Заказ", "Нет доступа к чужому заказу")
         if order.status != "pending":
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST, detail="Заказ уже подтвержден"
-            )
+            raise BusinessError("Заказ", "Заказ уже подтвержден")
 
         for item in order.items:
             product = await self.product_crud.get_by_id(item.product_id)
             if product.stock < item.quantity:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"Товара {product.name} больше нет",
-                )
+                raise BusinessError("Заказ", f"Товара {product.name} больше нет")
             product.stock -= item.quantity
 
         order.status = "pending"
@@ -90,15 +82,9 @@ class OrderService:
     async def get_order_for_payment(self, order_id: int, user_id: int) -> Order:
         order = await self.order_crud.get_order_with_items(order_id)
         if not order:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Заказ не найден",
-            )
+            raise OrderNotFoundError(order_id)
         if order.user_id != user_id:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Заказ не найден",
-            )
+            raise OrderNotFoundError(order_id)
 
         return order
 
@@ -107,17 +93,11 @@ class OrderService:
     ) -> tuple[Order, bool]:
         order = await self.order_crud.get_order_with_items(order_id)
         if not order:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Заказ не найден",
-            )
+            raise OrderNotFoundError(order_id)
 
         is_admin = current_user.role == "seller"
         if not is_admin and order.user_id != current_user.id:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Нет доступа к чужому заказу",
-            )
+            raise BusinessError("Заказ", "Нет доступа к чужому заказу")
 
         return order, is_admin
 
@@ -126,19 +106,13 @@ class OrderService:
     ) -> str:
         order_item = await self.order_crud.get_order_item_detailed(order_id, item_id)
         if not order_item:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Позиция не найдена",
-            )
+            raise BusinessError("Позиция", f"Позиция {item_id} не найдена")
 
         if (
             order_item.order.user_id != current_user.id
             and current_user.role != "seller"
         ):
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Нет прав",
-            )
+            raise BusinessError("Заказ", "Нет доступа")
 
         await self.order_crud.return_item(order_item)
         await self.order_crud.recalculate_total(order_item.order)
@@ -155,23 +129,14 @@ class OrderService:
     ) -> str:
         order = await self.order_crud.get_order(order_id, current_user.id)
         if not order:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Заказ не найден",
-            )
+            raise OrderNotFoundError(order_id)
 
         product = await self.product_crud.get_product_available(item_id, quantity)
         if not product:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Товар недоступен",
-            )
+            raise ProductNotFoundError(item_id)
 
         if order.user_id != current_user.id and current_user.role != "seller":
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Нет прав",
-            )
+            raise BusinessError("Заказ", "Нет доступа")
 
         await self.order_crud.add_or_update_item(
             order, item_id, quantity, product.price

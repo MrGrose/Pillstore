@@ -1,10 +1,13 @@
-from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.users import User
 from app.db_crud.user_crud import CrudUser
 
 from app.core.security import pwd_context
+from app.exceptions.handlers import (
+    UserNotFoundError,
+    BusinessError,
+)
 
 
 class UserService:
@@ -14,18 +17,13 @@ class UserService:
 
     async def checking_seller(self, user: User):
         if user.role != "seller":
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN, detail="Нет прав доступа"
-            )
+            raise BusinessError("Пользователь", "Нет прав доступа")
 
     async def create_admin_user(
         self, email: str, password: str, role: str
     ) -> tuple[str, int] | str:
         if await self.user_crud.check_user_email(email):
-            return (
-                f"/admin/error-400?title=Email занят&message={email} уже существует&tab=users",
-                302,
-            )
+            raise BusinessError("Пользователь", f"{email} уже существует")
         hashed_password = pwd_context.hash(password)
         user_dict = {"email": email, "hashed_password": hashed_password, "role": role}
         user = await self.user_crud.create(user_dict)
@@ -36,16 +34,10 @@ class UserService:
     ) -> tuple[str, int] | str:
         user = await self.user_crud.get_by_id(user_id)
         if not user:
-            return (
-                f"/admin/error-404?title=Пользователь не найден&message=ID {user_id} не найден&tab=users",
-                302,
-            )
+            raise UserNotFoundError(user_id)
 
         if email != user.email and await self.user_crud.check_user_email(email):
-            return (
-                f"/admin/error-400?title=Email занят&message={email} уже существует&tab=users",
-                302,
-            )
+            raise BusinessError("Пользователь", f"{email} уже существует")
 
         update_data = {"email": email, "role": role}
         if password:
@@ -57,10 +49,7 @@ class UserService:
     async def delete_admin_user(self, user_id: int) -> tuple[str, int] | str:
         user = await self.user_crud.get_by_id(user_id)
         if not user:
-            return (
-                f"/admin/error-404?title=Пользователь не найден&message=ID {user_id} не найден&tab=users",
-                302,
-            )
+            raise UserNotFoundError(user_id)
 
         await self.user_crud.delete(user_id)
         return f"Пользователь {user.email} (ID {user.id}) удален"
@@ -68,7 +57,5 @@ class UserService:
     async def get_user_for_edit(self, user_id: int) -> tuple[str, int] | User:
         user = await self.user_crud.get_by_id(user_id)
         if not user:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail="Пользователь не найден"
-            )
+            raise UserNotFoundError(user_id)
         return user

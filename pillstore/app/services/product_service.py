@@ -14,7 +14,7 @@ from app.db_crud.category_crud import CrudCategory
 from app.schemas.product import ProductCreate, ProductPagination
 from app.schemas.category import CategoryTreeOut
 
-from app.exceptions.products import ProductNotFoundError
+from app.exceptions.handlers import ProductNotFoundError
 
 from app.services.utils import formatted_description, save_image_from_url
 from app.services.iherb_scraper import IHerbScraper
