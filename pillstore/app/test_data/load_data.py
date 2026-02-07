@@ -3,7 +3,7 @@ import json
 import os
 
 from app.api.api_products import import_products
-from app.core.security import hash_password
+from app.core.auth_utils import hash_password
 from app.core.logger import logger
 from app.db_crud.user_crud import CrudUser
 from app.models.users import User as UserModel
