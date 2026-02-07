@@ -16,3 +16,6 @@ stop:
 
 down:
 	docker compose down -v
+
+rest:
+	docker compose restart api
