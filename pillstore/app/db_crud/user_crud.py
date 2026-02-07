@@ -22,3 +22,11 @@ class CrudUser(CRUDBase):
             select(self.model).where(self.model.email == email)
         )
         return db_user
+
+    async def get_user_by_email(self, email: str) -> User | None:
+        result = await self.session.scalars(
+            select(self.model).where(
+                self.model.email == email, self.model.is_active == True
+            )
+        )
+        return result.first()

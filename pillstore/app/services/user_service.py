@@ -4,7 +4,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.users import User
 from app.db_crud.user_crud import CrudUser
 
-from app.core.security import verify_password, create_access_token, hash_password
+from app.core.auth_utils import (
+    hash_password,
+    verify_password,
+    create_access_token,
+)
 from app.exceptions.handlers import (
     UserNotFoundError,
     BusinessError,
@@ -77,11 +81,78 @@ class UserService:
         user = await self.user_crud.create(user_dict)
         return user
 
-    async def validate_registration_data(self, email: str, password: str) -> list[str]:
-        errors: list[str] = []
-        if "@" not in email or not email.endswith((".com", ".ru", ".de")):
-            errors.append("Некорректный email")
-        if len(password) < 6:
-            errors.append("Пароль не короче 6 символов")
+    async def validate_register_data(self, email: str, password: str) -> dict[str, str]:
+        errors = await self._validate_base_data(
+            email, password, check_user_exists=False
+        )
+        if "email" not in errors:
+            existing_user = await self.user_crud.check_user_email(email)
+            if existing_user:
+                errors["email"] = "Пользователь с таким email уже зарегистрирован"
 
-        return errors if errors else []
+        return errors
+
+    async def validate_login_data(self, email: str, password: str) -> dict[str, str]:
+        errors = await self._validate_base_data(email, password, check_user_exists=True)
+        if not errors.get("password") and "email" not in errors:
+            user = await self.user_crud.get_user_by_email(email)
+            if not verify_password(password, user.hashed_password):
+                errors["password"] = "Неверный пароль"
+
+        return errors
+
+    async def _validate_base_data(
+        self, email: str, password: str, check_user_exists: bool = False
+    ) -> dict[str, str]:
+        errors = {}
+
+        if not self._is_valid_email(email):
+            errors["email"] = "Введите корректный email"
+        elif check_user_exists:
+            user = await self.user_crud.get_user_by_email(email)
+            if not user:
+                errors["email"] = "Пользователь с таким email не найден"
+
+        if not self._is_valid_password(password):
+            errors["password"] = "Пароль должен содержать не менее 6 символов"
+
+        return errors
+
+    def _is_valid_email(self, email: str) -> bool:
+        if not email or "@" not in email:
+            return False
+        valid_domains = (".com", ".ru", ".yandex", ".org", ".net", ".gmail", ".ya")
+        return any(email.endswith(domain) for domain in valid_domains)
+
+    def _is_valid_password(self, password: str) -> bool:
+        return bool(password and len(password) >= 6)
+
+    async def reset_password(
+        self, email: str, new_password: str, confirm_password: str
+    ) -> dict:
+        validation_errors = await self._validate_base_data(
+            email, new_password, check_user_exists=True
+        )
+
+        if new_password != confirm_password:
+            if "password" not in validation_errors:
+                validation_errors["password"] = "Пароли не совпадают"
+
+        if validation_errors:
+            return {"success": False, "errors": validation_errors}
+
+        user = await self.user_crud.get_user_by_email(email)
+
+        hashed_password = hash_password(new_password)
+        await self.user_crud.update(user, {"hashed_password": hashed_password})
+
+        access_token = create_access_token(
+            {"sub": user.email, "role": user.role, "id": user.id}
+        )
+
+        return {
+            "success": True,
+            "message": "Пароль успешно изменен",
+            "access_token": access_token,
+            "user": user,
+        }

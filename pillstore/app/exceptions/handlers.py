@@ -1,5 +1,24 @@
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, HTTPException, Request, status
 from app.core.config import templates
+
+
+class AuthException(HTTPException):
+    def __init__(self, detail: str):
+        super().__init__(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=detail,
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+
+class TokenExpiredError(AuthException):
+    def __init__(self):
+        super().__init__("Срок действия токена истек")
+
+
+class InvalidCredentialsError(AuthException):
+    def __init__(self):
+        super().__init__("Не удалось подтвердить учетные данные")
 
 
 class NotFoundError(Exception):
@@ -37,6 +56,35 @@ class CartNotFoundError(NotFoundError):
 
 
 def setup_html_error_handlers(app: FastAPI):
+    @app.exception_handler(AuthException)
+    async def auth_exception_handler(request: Request, exc: AuthException):
+        return templates.TemplateResponse(
+            "errors/admin_error.html",
+            {
+                "request": request,
+                "code": exc.status_code,
+                "title": "Ошибка авторизации",
+                "message": exc.detail,
+                "tab": "dashboard",
+            },
+            status_code=exc.status_code,
+            headers=exc.headers,
+        )
+
+    @app.exception_handler(HTTPException)
+    async def http_exception_handler(request: Request, exc: HTTPException):
+        return templates.TemplateResponse(
+            "errors/admin_error.html",
+            {
+                "request": request,
+                "code": exc.status_code,
+                "title": "Ошибка",
+                "message": exc.detail,
+                "tab": "dashboard",
+            },
+            status_code=exc.status_code,
+        )
+
     @app.exception_handler(NotFoundError)
     async def not_found_handler(request: Request, exc: NotFoundError):
         context = {

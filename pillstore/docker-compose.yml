@@ -33,6 +33,7 @@ services:
       - ./media:/app/media
       - ./app/tests_data:/app/tests_data
       - ./app:/app/app
+      - ./templates:/app/templates
     depends_on:
       db:
         condition: service_healthy
