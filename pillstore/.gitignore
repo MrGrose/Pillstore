@@ -49,5 +49,6 @@ media/
 .linter
 Makefile
 poetry.lock
-.gitconfig
-.editorconfig
+.vscode/
+../.editorconfig
+../.gitconfig
