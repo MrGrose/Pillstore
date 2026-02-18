@@ -1,7 +1,7 @@
 from sqlalchemy import or_, select
 
-from app.models.categories import Category
 from app.db_crud.base import CRUDBase
+from app.models.categories import Category
 from app.schemas.category import CategoryRead
 
 
@@ -63,3 +63,17 @@ class CrudCategory(CRUDBase):
 
         await self.session.flush()
         return categories
+
+    async def get_category_name(self, name: str) -> Category | None:
+        return await self.session.scalar(
+            select(self.model).where(self.model.name == name)
+        )
+
+    async def inactive_category(self, category_id: int) -> Category:
+        category = await self.get_by_id(category_id)
+        category.is_active = False
+        self.session.add(category)
+        await self.session.commit()
+        await self.session.refresh(category)
+
+        return category
