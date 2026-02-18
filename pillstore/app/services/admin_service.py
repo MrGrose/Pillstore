@@ -1,25 +1,22 @@
 from fastapi import UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db_crud.products_crud import CrudProduct
-from app.db_crud.order_crud import CrudOrder
-
-from app.models.orders import Order
-from app.models.users import User
-from app.models.products import Product
-from app.db_crud.user_crud import CrudUser
 from app.db_crud.admin_crud import CrudAdmin
-
-from app.utils.utils import remove_product_image, save_product_image
-from app.schemas.product import ProductCreate, ProductUpdate
 from app.db_crud.category_crud import CrudCategory
-from app.models.categories import Category
-
+from app.db_crud.order_crud import CrudOrder
+from app.db_crud.products_crud import CrudProduct
+from app.db_crud.user_crud import CrudUser
 from app.exceptions.handlers import (
+    BusinessError,
     OrderNotFoundError,
     ProductNotFoundError,
-    BusinessError,
 )
+from app.models.categories import Category
+from app.models.orders import Order
+from app.models.products import Product
+from app.models.users import User
+from app.schemas.product import ProductCreate, ProductUpdate
+from app.utils.utils import remove_product_image, save_product_image
 
 
 class AdminService:
@@ -50,7 +47,9 @@ class AdminService:
             "products_not_active": await self.product_crud.get_all(False),
             "user_order_counts": await self._user_order_counts(users),
             "users": users,
-            "orders": await self.order_crud.get_orders_list(status_filter),
+            "orders": await self.order_crud.get_orders_user_list(
+                status_filter, load_items=False
+            ),
         }
 
     async def order_status_admin(self, order_id: int, new_status: str) -> None:
@@ -113,7 +112,7 @@ class AdminService:
 
     async def create_product_admin(
         self, data: ProductCreate, image: UploadFile | None = None
-    ) -> tuple[str, str]:
+    ) -> tuple[str, Product]:
         product_data = data.model_dump(exclude={"image_url"})
         product = await self.product_crud.create(product_data)
 
@@ -126,5 +125,46 @@ class AdminService:
 
         self.session.add(product)
         await self.session.commit()
+        await self.session.refresh(product)
+        return f"ID {product.id} Товар {product.name} создан", product
 
-        return f"ID {product.id} Товар {product.name} создан", "success"
+    async def get_stats(self) -> dict:
+        return await self.admin_crud.dashboard_stats()
+
+    async def get_orders_for_admin(self, status_filter: str | None = None) -> list:
+        return await self.order_crud.get_orders_user_list(
+            status_filter, load_items=True
+        )
+
+    async def get_products_for_admin_paginated(
+        self,
+        active_only: bool = True,
+        page: int = 1,
+        page_size: int = 20,
+    ) -> dict:
+        items, total = await self.product_crud.get_products_paginated(
+            is_active=active_only, page=page, page_size=page_size
+        )
+        total_active = await self.product_crud.get_products_count(True)
+        total_inactive = await self.product_crud.get_products_count(False)
+        return {
+            "items": items,
+            "total": total,
+            "page": page,
+            "page_size": page_size,
+            "total_active": total_active,
+            "total_inactive": total_inactive,
+        }
+
+    async def create_product_check_url(
+        self, data: ProductCreate, image: UploadFile | None = None
+    ) -> Product:
+        if data.url:
+            existing = await self.product_crud.get_by_url(data.url)
+            if existing:
+                raise BusinessError("Товар", "Товар с таким URL уже существует")
+        _, product = await self.create_product_admin(data, image)
+        return product
+
+    async def get_product_by_id(self, product_id: int) -> Product | None:
+        return await self.product_crud.get_by_id(product_id)
