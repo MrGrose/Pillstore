@@ -143,35 +143,3 @@ class CrudBatch:
         await self.session.delete(batch)
         await self.session.flush()
         return batch.product_id
-
-    async def update_batch(
-        self,
-        batch_id: int,
-        quantity: int | None = None,
-        expiry_date: str | None = None,
-    ) -> ProductBatch:
-        from datetime import datetime as dt
-
-        batch = await self.session.get(
-            ProductBatch, batch_id, options=[selectinload(ProductBatch.deductions)]
-        )
-        if not batch:
-            raise ValueError(f"Партия {batch_id} не найдена")
-        used = sum(d.quantity for d in batch.deductions)
-        if quantity is not None:
-            if quantity < used:
-                raise ValueError(
-                    f"Количество не может быть меньше уже проданного ({used})"
-                )
-            product = await self.session.get(Product, batch.product_id)
-            if product:
-                product.stock = (product.stock or 0) - batch.quantity + quantity
-            batch.quantity = quantity
-        if expiry_date is not None:
-            try:
-                batch.expiry_date = dt.strptime(
-                    expiry_date, "%Y-%m-%d"
-                ).date()
-            except ValueError:
-                pass
-        return batch
