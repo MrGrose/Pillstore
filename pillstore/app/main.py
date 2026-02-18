@@ -1,23 +1,34 @@
 import os
-from fastapi import FastAPI
-from fastapi.staticfiles import StaticFiles
-from fastapi.responses import RedirectResponse
-from fastapi.middleware.trustedhost import TrustedHostMiddleware
-from fastapi.middleware.httpsredirect import HTTPSRedirectMiddleware
-from fastapi.middleware.gzip import GZipMiddleware
-from fastapi.middleware.cors import CORSMiddleware
 
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
+from fastapi.middleware.httpsredirect import HTTPSRedirectMiddleware
+from fastapi.middleware.trustedhost import TrustedHostMiddleware
+from fastapi.responses import RedirectResponse
+from fastapi.staticfiles import StaticFiles
+
+from app.api.v2.admin import admin_router
+from app.api.v2.auth import auth_router
+from app.api.v2.cart import cart_router
+from app.api.v2.categories import categories_router
+from app.api.v2.orders import orders_router
+from app.api.v2.products import product_router
+from app.api.v2.profile import profile_router
 from app.core.init import lifespan
 from app.core.logger import LoggingMiddleware
-
-from app.routers import products, orders, auth, profile, admin, errors, scraper
-from app.api import api_products
-
 from app.exceptions.handlers import setup_html_error_handlers
+from app.routers import admin, auth, errors, orders, products, profile, scraper
 
 tags_metadata = [
     {"name": "Health"},
     {"name": "API v2 Products"},
+    {"name": "API v2 Categories"},
+    {"name": "API v2 Auth"},
+    {"name": "API v2 Cart"},
+    {"name": "API v2 Orders"},
+    {"name": "API v2 Profile"},
+    {"name": "API v2 Admin"},
     {"name": "Products"},
     {"name": "Auth"},
     {"name": "Orders"},
@@ -78,7 +89,13 @@ app.include_router(orders.router, tags=["Orders"])
 app.include_router(admin.router, prefix="/admin", tags=["Admin"])
 app.include_router(profile.router, prefix="/profile", tags=["Profile"])
 app.include_router(errors.router, tags=["Errors"])
-app.include_router(api_products.router, prefix="/api/v2", tags=["API v2 Products"])
+app.include_router(product_router)
+app.include_router(categories_router)
+app.include_router(auth_router)
+app.include_router(cart_router)
+app.include_router(orders_router)
+app.include_router(profile_router)
+app.include_router(admin_router)
 
 
 @app.get("/health", tags=["Health"])
