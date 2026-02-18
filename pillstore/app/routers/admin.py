@@ -1,20 +1,6 @@
 from datetime import datetime
 from decimal import Decimal
 
-from fastapi import (
-    APIRouter,
-    Depends,
-    File,
-    Form,
-    HTTPException,
-    Query,
-    Request,
-    UploadFile,
-    status,
-)
-from fastapi.responses import HTMLResponse, RedirectResponse
-from sqlalchemy.ext.asyncio import AsyncSession
-
 from app.core.config import templates
 from app.core.deps import get_db
 from app.core.security import get_current_seller
@@ -25,6 +11,10 @@ from app.services.cart import get_cart_count
 from app.services.category_service import CategoryService
 from app.services.product_service import ProductService
 from app.services.user_service import UserService
+from fastapi import (APIRouter, Depends, File, Form, HTTPException, Query,
+                     Request, UploadFile, status)
+from fastapi.responses import HTMLResponse, RedirectResponse
+from sqlalchemy.ext.asyncio import AsyncSession
 
 router = APIRouter()
 
@@ -36,7 +26,6 @@ async def admin_page(
     current_user: User = Depends(get_current_seller),
     cart_count: int = Depends(get_cart_count),
     tab: str = Query("dashboard"),
-    analytics_subtab: str = Query(None),
     message: str = Query(None),
     message_type: str = Query("info"),
     status_filter: str = Query(None),
@@ -75,7 +64,6 @@ async def admin_page(
             "search": search_product,
             "active_category_id": category_id,
             "pagination": pagination_active,
-            "analytics_subtab": analytics_subtab,
         },
     )
 
