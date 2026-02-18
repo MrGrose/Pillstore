@@ -1,0 +1,14 @@
+{% if flash_message and flash_message.text %}
+{% set alert_class = {
+    'success': 'alert-success',
+    'error': 'alert-danger',
+    'warning': 'alert-warning',
+    'info': 'alert-info'
+}.get(flash_message.type or 'info', 'alert-info') %}
+<div class="alert {{ alert_class }} alert-dismissible fade show position-fixed animate__animated animate__fadeInRight"
+     style="top: 20px; right: 20px; z-index: 9999; animation: slideOut 5s forwards;"
+     role="alert">
+    {{ flash_message.text }}
+    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+</div>
+{% endif %}
