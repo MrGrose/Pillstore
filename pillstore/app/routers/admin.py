@@ -173,6 +173,28 @@ async def new_product_form(
     )
 
 
+@router.post("/products/{product_id}/batches/{batch_id}/delete", response_class=HTMLResponse)
+async def delete_product_batch(
+    product_id: int,
+    batch_id: int,
+    tab: str = Query("products"),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_seller),
+):
+    admin_svc = AdminService(db)
+    try:
+        await admin_svc.delete_batch_admin(product_id=product_id, batch_id=batch_id)
+    except Exception as e:
+        return RedirectResponse(
+            f"/admin/products/{product_id}/edit?tab={tab}&message={e!s}&message_type=error",
+            status_code=303,
+        )
+    return RedirectResponse(
+        f"/admin/products/{product_id}/edit?tab={tab}&message=Партия+удалена&message_type=success",
+        status_code=303,
+    )
+
+
 @router.post("/products/{product_id}", response_class=HTMLResponse)
 async def admin_product_update(
     product_id: int,
@@ -238,57 +260,6 @@ async def add_product_batch(
         )
     return RedirectResponse(
         f"/admin/products/{product_id}/edit?tab={tab}&message=Партия+добавлена&message_type=success",
-        status_code=303,
-    )
-
-
-@router.post("/products/{product_id}/batches/{batch_id}/delete", response_class=HTMLResponse)
-async def delete_product_batch(
-    product_id: int,
-    batch_id: int,
-    tab: str = Query("products"),
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_seller),
-):
-    admin_svc = AdminService(db)
-    try:
-        await admin_svc.delete_batch_admin(product_id=product_id, batch_id=batch_id)
-    except Exception as e:
-        return RedirectResponse(
-            f"/admin/products/{product_id}/edit?tab={tab}&message={e!s}&message_type=error",
-            status_code=303,
-        )
-    return RedirectResponse(
-        f"/admin/products/{product_id}/edit?tab={tab}&message=Партия+удалена&message_type=success",
-        status_code=303,
-    )
-
-
-@router.post("/products/{product_id}/batches/{batch_id}", response_class=HTMLResponse)
-async def update_product_batch(
-    product_id: int,
-    batch_id: int,
-    quantity: int | None = Form(None),
-    expiry_date: str | None = Form(None),
-    tab: str = Query("products"),
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_seller),
-):
-    admin_svc = AdminService(db)
-    try:
-        await admin_svc.update_batch_admin(
-            product_id=product_id,
-            batch_id=batch_id,
-            quantity=quantity,
-            expiry_date=expiry_date or None,
-        )
-    except Exception as e:
-        return RedirectResponse(
-            f"/admin/products/{product_id}/edit?tab={tab}&message={e!s}&message_type=error",
-            status_code=303,
-        )
-    return RedirectResponse(
-        f"/admin/products/{product_id}/edit?tab={tab}&message=Партия+обновлена&message_type=success",
         status_code=303,
     )
 
