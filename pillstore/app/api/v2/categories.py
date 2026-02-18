@@ -27,7 +27,7 @@ async def api_get_category_by_id(
     category_id: int,
     db: AsyncSession = Depends(get_db),
 ):
-    """Одна категория по id (GET)."""
+    """Получить одну категорию по id."""
     category_svc = CategoryService(db)
     category = await category_svc.get_category_by_id(category_id)
     if not category:
@@ -67,7 +67,7 @@ async def api_create_category(
     is_active: bool = Form(True),
     db: AsyncSession = Depends(get_db),
 ):
-    """Создать категорию (POST)."""
+    """Создать категорию."""
     category_svc = CategoryService(db)
     return await category_svc.api_create_category_by_name(name, parent_id, is_active)
 
@@ -80,7 +80,7 @@ async def api_update_category(
     is_active: bool = Form(None),
     db: AsyncSession = Depends(get_db),
 ):
-    """Обновить категорию (PUT)."""
+    """Обновить категорию."""
     category_svc = CategoryService(db)
     return await category_svc.api_update_category_by_id(
         category_id, name, parent_id, is_active
@@ -92,7 +92,7 @@ async def api_inactive_category(
     category_id: int,
     db: AsyncSession = Depends(get_db),
 ):
-    """Деактивировать категорию (DELETE)."""
+    """Деактивировать категорию."""
     category_svc = CategoryService(db)
     msg = await category_svc.api_inactive_category_by_id(category_id)
     return {"message": msg}

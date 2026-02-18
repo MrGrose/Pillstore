@@ -32,7 +32,7 @@ async def update_current_user(
     db: AsyncSession = Depends(get_db),
     current_user: UserModel = Depends(get_current_user),
 ):
-    """Обновить профиль (проверка current_password в сервисе)."""
+    """Обновить профиль (проверка текущего пароля в сервисе)."""
     user_service = UserService(db)
     data = update_data.model_dump(exclude_unset=True)
     try:
@@ -82,7 +82,7 @@ async def login_user(
     password: str = Form(...),
     db: AsyncSession = Depends(get_db),
 ):
-    """Вход (возвращает access_token)."""
+    """Вход (возвращает токен доступа)."""
     user_service = UserService(db)
     try:
         token = await user_service.authenticate_user(email=email, password=password)
@@ -96,7 +96,7 @@ async def token_oauth2(
     form_data: OAuth2PasswordRequestForm = Depends(),
     db: AsyncSession = Depends(get_db),
 ):
-    """JWT по email/паролю (OAuth2 form для Swagger Authorize)."""
+    """Выдача JWT по email и паролю (форма OAuth2 для кнопки «Authorize» в Swagger)."""
     user_service = UserService(db)
     try:
         access_token = await user_service.authenticate_user(

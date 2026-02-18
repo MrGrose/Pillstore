@@ -17,7 +17,7 @@ orders_router = APIRouter(prefix="/api/v2", tags=["API v2 Orders"])
 
 
 class OrderCheckoutResponse(BaseModel):
-    """Response for checkout endpoint (order created from cart)."""
+    """Ответ эндпоинта оформления заказа (заказ, созданный из корзины)."""
 
     order: OrderSchema = Field(..., description="Созданный заказ")
     order_url: str = Field(..., description="URL для получения заказа")
@@ -25,19 +25,19 @@ class OrderCheckoutResponse(BaseModel):
 
 
 class OrderItemAddRequest(BaseModel):
-    """Request body for adding an item to an existing order."""
+    """Тело запроса для добавления позиции в существующий заказ."""
 
     product_id: int = Field(..., ge=1, description="ID товара")
     quantity: int = Field(1, ge=1, le=99, description="Количество")
 
 
 class OrderActionResponse(BaseModel):
-    """Generic response for order mutation endpoints."""
+    """Общий ответ для эндпоинтов изменения заказа."""
 
     message: str = Field(..., description="Результат операции")
     order: OrderSchema | None = Field(None, description="Обновлённый заказ (если есть)")
     order_deleted: bool = Field(
-        False, description="True если заказ был удалён (после возврата всех позиций)"
+        False, description="Истина, если заказ удалён (после возврата всех позиций)"
     )
 
 
@@ -52,7 +52,7 @@ async def api_get_user_orders(
         False, description="Только для seller: показать заказы всех пользователей"
     ),
 ):
-    """Список заказов с пагинацией (GET). По умолчанию — свои; seller может all_orders."""
+    """Список заказов с пагинацией. По умолчанию — свои; продавец может запросить все (all_orders=true)."""
     order_service = OrderService(db)
 
     if all_orders and current_user.role != "seller":
@@ -81,7 +81,7 @@ async def api_checkout_order(
     db: AsyncSession = Depends(get_db),
     current_user: UserModel = Depends(get_current_user),
 ):
-    """Создать заказ из корзины (POST checkout)."""
+    """Создать заказ из корзины (оформление заказа)."""
     order_service = OrderService(db)
 
     try:
@@ -112,7 +112,7 @@ async def api_cancel_order(
     db: AsyncSession = Depends(get_db),
     current_user: UserModel = Depends(get_current_user),
 ):
-    """Отменить заказ (PUT). Только pending, только владелец."""
+    """Отменить заказ. Только в статусе «ожидает оплаты», только владелец."""
     order_service = OrderService(db)
 
     try:
@@ -132,7 +132,7 @@ async def api_get_order(
     db: AsyncSession = Depends(get_db),
     current_user: UserModel = Depends(get_current_user),
 ):
-    """Один заказ по id (GET)."""
+    """Получить один заказ по id."""
     order_service = OrderService(db)
 
     try:
@@ -154,7 +154,7 @@ async def api_confirm_order_payment(
     db: AsyncSession = Depends(get_db),
     current_user: UserModel = Depends(get_current_user),
 ):
-    """Подтвердить оплату заказа (POST confirm)."""
+    """Подтвердить оплату заказа."""
     order_service = OrderService(db)
 
     try:
@@ -174,7 +174,7 @@ async def api_get_payment_info(
     db: AsyncSession = Depends(get_db),
     current_user: UserModel = Depends(get_current_user),
 ):
-    """Данные для оплаты заказа (GET)."""
+    """Данные для страницы оплаты заказа."""
     order_service = OrderService(db)
 
     try:
@@ -200,7 +200,7 @@ async def api_return_order_item(
     db: AsyncSession = Depends(get_db),
     current_user: UserModel = Depends(get_current_user),
 ):
-    """Вернуть позицию заказа на склад (POST return)."""
+    """Вернуть позицию заказа на склад."""
     order_service = OrderService(db)
 
     try:
@@ -224,7 +224,7 @@ async def api_add_item_to_order(
     db: AsyncSession = Depends(get_db),
     current_user: UserModel = Depends(get_current_user),
 ):
-    """Добавить позицию в заказ (POST)."""
+    """Добавить позицию в заказ."""
     order_service = OrderService(db)
 
     try:
