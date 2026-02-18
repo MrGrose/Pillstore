@@ -46,14 +46,38 @@ class CartService:
         )
         return cart_items, total
 
-    async def remove_cart_item_by_id(self, user_id, item_id) -> None:
+    async def remove_cart_item_by_id(self, user_id: int, item_id: int) -> None:
         cart_item = await self.crud.get_cart_item_by_id(user_id, item_id)
-
         if not cart_item:
             raise CartNotFoundError(item_id)
-
         await self.session.delete(cart_item)
         await self.session.commit()
+
+    async def update_item_quantity(
+        self, user_id: int, item_id: int, quantity: int
+    ) -> CartItem:
+        cart_item = await self.crud.get_cart_item_by_id(user_id, item_id)
+        if not cart_item:
+            raise CartNotFoundError(item_id)
+        product = await self.product_crud.get_by_id(cart_item.product_id)
+        if not product:
+            raise ProductNotFoundError(cart_item.product_id)
+        if product.stock < quantity:
+            raise BusinessError(
+                "Корзина", f"Недостаточно на складе. Доступно: {product.stock}"
+            )
+        cart_item.quantity = quantity
+        await self.session.commit()
+        await self.session.refresh(cart_item)
+        return cart_item
+
+    async def clear_cart(self, user_id: int) -> None:
+        await self.crud.delete_cart_by_user(user_id)
+        await self.session.commit()
+
+    async def get_cart_count(self, user_id: int) -> int:
+        items = await self.crud.get_cart_items(user_id, ordered=False)
+        return sum(item.quantity for item in items)
 
     async def cart_update_api(
         self,
