@@ -88,6 +88,9 @@ class OrderService:
 
         return order
 
+    async def get_order_with_items(self, order_id: int) -> Order | None:
+        return await self.order_crud.get_order_with_items(order_id)
+
     async def get_order_for_user(
         self, order_id: int, current_user: UserModel
     ) -> tuple[Order, bool]:
@@ -148,3 +151,45 @@ class OrderService:
         await self.session.commit()
 
         return f"orders/{order_id}?message={product.name} ({quantity} шт.) добавлен"
+
+    async def get_orders_list(
+        self,
+        current_user: UserModel,
+        page: int = 1,
+        page_size: int = 10,
+        status_filter: str | None = None,
+        all_orders: bool = False,
+    ) -> tuple[list[Order], int]:
+        user_id = (
+            None if all_orders and current_user.role == "seller" else current_user.id
+        )
+        orders, total = await self.order_crud.get_orders_paginated(
+            user_id=user_id,
+            status_filter=status_filter,
+            page=page,
+            page_size=page_size,
+        )
+        return orders, total
+
+    async def cancel_order(self, order_id: int, current_user: UserModel) -> Order:
+        order = await self.order_crud.get_order_with_items(order_id)
+        if not order:
+            raise OrderNotFoundError(order_id)
+
+        if order.user_id != current_user.id:
+            raise BusinessError("Заказ", "Нет доступа к чужому заказу")
+
+        if order.status != "pending":
+            raise BusinessError(
+                "Заказ", f"Нельзя отменить заказ со статусом '{order.status}'"
+            )
+
+        # Return items to stock
+        for item in order.items:
+            if item.product:
+                item.product.stock += item.quantity
+
+        order.status = "cancelled"
+        await self.session.commit()
+        await self.session.refresh(order)
+        return order
