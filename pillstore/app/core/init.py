@@ -2,6 +2,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
+from app.core.config import settings
 from app.core.logger import logger
 from app.db.session import async_session_maker, create_tables
 from app.test_data.load_data import seed_admin_and_products
@@ -9,6 +10,13 @@ from app.test_data.load_data import seed_admin_and_products
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    if settings.ENV == "production" and (
+        not settings.SECRET_KEY or len(settings.SECRET_KEY) < 32
+    ):
+        raise ValueError(
+            "В production задайте SECRET_KEY длиной не менее 32 символов"
+            " в .env"
+        )
     logger.info("🔄 Запуск PillStore...")
     await create_tables()
 

@@ -1,5 +1,3 @@
-import os
-
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
@@ -15,6 +13,7 @@ from app.api.v2.categories import categories_router
 from app.api.v2.orders import orders_router
 from app.api.v2.products import product_router
 from app.api.v2.profile import profile_router
+from app.core.config import settings
 from app.core.init import lifespan
 from app.core.logger import LoggingMiddleware
 from app.exceptions.handlers import setup_html_error_handlers
@@ -49,10 +48,10 @@ app = FastAPI(
 setup_html_error_handlers(app)
 app.add_middleware(
     TrustedHostMiddleware,
-    allowed_hosts=["localhost", "127.0.0.1"],
+    allowed_hosts=settings.ALLOWED_HOSTS,
 )
 
-if os.getenv("ENV") == "production":
+if settings.ENV == "production":
     app.add_middleware(HTTPSRedirectMiddleware)
 
 app.add_middleware(LoggingMiddleware)
@@ -60,13 +59,7 @@ app.add_middleware(GZipMiddleware, minimum_size=1000)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-        "http://localhost:8080",
-        "http://127.0.0.1:3000",
-        "http://127.0.0.1:8080",
-        "http://localhost:8000",
-    ],
+    allow_origins=settings.ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

@@ -3,7 +3,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth_utils import create_access_token
-from app.core.config import MAX_AGE, templates
+from app.core.config import settings, templates
 from app.core.deps import get_db
 from app.services.user_service import UserService
 
@@ -31,7 +31,14 @@ async def login(
         )
     access_token = await user_svc.authenticate_user(email, password)
     response = RedirectResponse("/products", status_code=303)
-    response.set_cookie("access_token", access_token, httponly=True, max_age=MAX_AGE)
+    response.set_cookie(
+        "access_token",
+        access_token,
+        httponly=True,
+        max_age=settings.MAX_AGE,
+        secure=(settings.ENV == "production"),
+        samesite="lax",
+    )
     return response
 
 
@@ -69,7 +76,14 @@ async def register(
         {"sub": user.email, "role": user.role, "id": user.id}
     )
     response = RedirectResponse("/products?msg=registered", status_code=303)
-    response.set_cookie("access_token", access_token, httponly=True, max_age=86400)
+    response.set_cookie(
+        "access_token",
+        access_token,
+        httponly=True,
+        max_age=settings.MAX_AGE,
+        secure=(settings.ENV == "production"),
+        samesite="lax",
+    )
     return response
 
 
@@ -110,7 +124,12 @@ async def simple_reset_password(
         },
     )
     response.set_cookie(
-        "access_token", result["access_token"], httponly=True, max_age=MAX_AGE
+        "access_token",
+        result["access_token"],
+        httponly=True,
+        max_age=settings.MAX_AGE,
+        secure=(settings.ENV == "production"),
+        samesite="lax",
     )
     response.headers["Refresh"] = "3; url=/products"
     return response

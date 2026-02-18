@@ -1,13 +1,16 @@
-.PHONY: up build logs logs-db stop down rest migrate shell install migrate-local run lint format test
+.PHONY: up build logs logs-db stop down rest migrate shell install migrate-local run lint format test env
 
-up:
+env:
+	@test -f .env || (cp .env.example .env && echo "Создан .env из .env.example")
+
+up: env
 	docker compose up db -d
 	@echo "🚀 DB ready на localhost:5434"
 	docker compose up api -d
 	@echo "🚀 API ready на localhost:8000"
 	@docker compose logs -f api --tail=10
 
-build:
+build: env
 	docker compose up -d --build
 
 logs:
