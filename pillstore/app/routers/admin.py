@@ -73,6 +73,7 @@ async def update_order_status(
     order_id: int,
     new_status: str = Form(...),
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_seller),
     tab: str = Query("orders"),
     status_filter: str = Query(None),
 ):
@@ -88,6 +89,7 @@ async def update_order_status(
 async def delete_order(
     order_id: int,
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_seller),
     tab: str = Query("orders"),
     status_filter: str = Query(None),
 ):
@@ -104,6 +106,7 @@ async def delete_product(
     product_id: int,
     tab: str = Form("products"),
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_seller),
 ):
     admin_svc = AdminService(db)
     message = await admin_svc.remove_product_admin(product_id)
@@ -186,6 +189,7 @@ async def admin_product_update(
     image: UploadFile | None = File(None),
     created_at: str = Form(None),
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_seller),
 ):
     parsed_created_at = datetime.fromisoformat(created_at) if created_at else None
     data = ProductUpdate(
@@ -350,6 +354,7 @@ async def create_user(
     password: str = Form(...),
     tab: str = Form("users"),
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_seller),
 ):
     user_service = UserService(db)
     user = await user_service.create_admin_user(email, password, role)
@@ -399,6 +404,7 @@ async def update_user(
     password: str = Form(None),
     tab: str = Form("users"),
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_seller),
 ):
     user_service = UserService(db)
     user = await user_service.update_admin_user(user_id, email, password, role)
@@ -417,6 +423,7 @@ async def delete_user(
     user_id: int,
     tab: str = Form("users"),
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_seller),
 ):
     user_service = UserService(db)
     result = await user_service.delete_admin_user(user_id)

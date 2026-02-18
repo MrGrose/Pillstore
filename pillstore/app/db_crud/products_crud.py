@@ -1,4 +1,4 @@
-from app.core.config import PAGINATION_SIZES
+from app.core.config import settings
 from app.db_crud.base import CRUDBase
 from app.models.orders import OrderItem
 from app.models.products import Product
@@ -55,7 +55,7 @@ class CrudProduct(CRUDBase):
             total_pages=total_pages,
             page_urls=page_urls,
             page_size_urls=page_size_urls,
-            pagination_sizes=PAGINATION_SIZES,
+            pagination_sizes=settings.PAGINATION_SIZES,
         )
 
     async def search_products_universal(
@@ -170,7 +170,7 @@ class CrudProduct(CRUDBase):
             page_key = "page"
             page_size_key = "page_size"
 
-        for size in PAGINATION_SIZES:
+        for size in settings.PAGINATION_SIZES:
             params = query_params.copy()
             params[page_key] = "1"
             params[page_size_key] = str(size)

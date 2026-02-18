@@ -361,12 +361,26 @@ make run             # uvicorn с --reload
 
 ## Безопасность
 
-- JWT аутентификация с access токенами
+- JWT аутентификация с access токенами; все админские маршруты (HTML и API) защищены ролью seller
 - Хеширование паролей с BCrypt
-- CORS настройки для фронтенда
-- TrustedHostMiddleware для защиты от host header атак
-- HTTPS редирект в production окружении
+- CORS и список доверенных хостов задаются через .env (ALLOWED_ORIGINS, ALLOWED_HOSTS)
+- TrustedHostMiddleware и HTTPS-редирект в production
+- Куки: httponly, в production — secure и samesite=lax
+- В production обязателен SECRET_KEY не короче 32 символов (проверка при старте)
+- SQL-запросы в production не логируются (echo=False)
 - Валидация входных данных с Pydantic
+
+### Развёртывание на сервере
+
+В `.env` на сервере задайте:
+
+- `ENV=production`
+- `SECRET_KEY=<длинный случайный ключ ≥32 символов>`
+- `DATABASE_URL=postgresql+asyncpg://...` (доступ к БД с сервера)
+- `ALLOWED_HOSTS=yourdomain.com,www.yourdomain.com` — ваши домены
+- `ALLOWED_ORIGINS=https://yourdomain.com,...` — разрешённые источники для CORS (если есть отдельный фронт)
+
+Рекомендуется: прокси (nginx) с HTTPS и проксирование на uvicorn, отключить `--reload` в production.
 
 ## Вклад в проект
 

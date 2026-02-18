@@ -3,7 +3,7 @@ from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.config import ALGORITHM, SECRET_KEY
+from app.core.config import settings
 from app.core.deps import get_db
 from app.exceptions.handlers import (
     AuthException,
@@ -21,7 +21,9 @@ oauth2_scheme_swagger = OAuth2PasswordBearer(
 
 def decode_token(token: str) -> dict:
     try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        payload = jwt.decode(
+            token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM]
+        )
         email: str | None = payload.get("sub")
         if email is None:
             raise InvalidCredentialsError()
