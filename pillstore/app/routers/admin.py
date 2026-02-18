@@ -125,32 +125,24 @@ async def edit_product_form(
     admin_svc = AdminService(db)
     product = await admin_svc.product_crud.get_by_id_with_categories(product_id)
     categories = await category_svc.get_all_categories()
+    batches = await admin_svc.get_batches_for_product(product_id)
     context = {
         "request": request,
         "product": product,
         "tab": tab,
         "action_url": f"/admin/products/{product_id}",
         "categories": categories,
+        "batches": batches,
         "current_user": current_user,
         "created_at_iso": (
             product.created_at.strftime("%Y-%m-%dT%H:%M")
             if product and product.created_at
             else ""
         ),
-        "expiry_at_iso": (
-            product.expiry_at.strftime("%Y-%m-%d")
-            if product and product.expiry_at
-            else ""
-        ),
         "created_at_display": (
             product.created_at.strftime("%d.%m.%Y %H:%M")
             if product and product.created_at
             else "Не указана"
-        ),
-        "expiry_at_display": (
-            product.expiry_at.strftime("%d.%m.%Y")
-            if product and product.expiry_at
-            else "Не указан"
         ),
     }
     return templates.TemplateResponse("admin/product_edit.html", context)
@@ -193,11 +185,9 @@ async def admin_product_update(
     is_active: bool = Form(True),
     image: UploadFile | None = File(None),
     created_at: str = Form(None),
-    expiry_at: str = Form(None),
     db: AsyncSession = Depends(get_db),
 ):
     parsed_created_at = datetime.fromisoformat(created_at) if created_at else None
-    parsed_expiry_at = datetime.fromisoformat(expiry_at).date() if expiry_at else None
     data = ProductUpdate(
         name=name,
         name_en=name_en,
@@ -209,7 +199,6 @@ async def admin_product_update(
         description_left=description_left or "",
         description_right=description_right or "",
         created_at=parsed_created_at,
-        expiry_at=parsed_expiry_at,
     )
     admin_svc = AdminService(db)
     msg, msg_type = await admin_svc.update_product_admin(
@@ -218,6 +207,84 @@ async def admin_product_update(
     await db.commit()
     return RedirectResponse(
         f"/admin?tab={tab}&message={msg.replace(' ', '+')}&message_type={msg_type}",
+        status_code=303,
+    )
+
+
+@router.post("/products/{product_id}/batches", response_class=HTMLResponse)
+async def add_product_batch(
+    product_id: int,
+    quantity: int = Form(...),
+    expiry_date: str = Form(None),
+    tab: str = Query("products"),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_seller),
+):
+    admin_svc = AdminService(db)
+    try:
+        await admin_svc.add_batch_admin(
+            product_id=product_id,
+            quantity=quantity,
+            expiry_date=expiry_date or None,
+        )
+    except Exception as e:
+        return RedirectResponse(
+            f"/admin/products/{product_id}/edit?tab={tab}&message={e!s}&message_type=error",
+            status_code=303,
+        )
+    return RedirectResponse(
+        f"/admin/products/{product_id}/edit?tab={tab}&message=Партия+добавлена&message_type=success",
+        status_code=303,
+    )
+
+
+@router.post("/products/{product_id}/batches/{batch_id}/delete", response_class=HTMLResponse)
+async def delete_product_batch(
+    product_id: int,
+    batch_id: int,
+    tab: str = Query("products"),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_seller),
+):
+    admin_svc = AdminService(db)
+    try:
+        await admin_svc.delete_batch_admin(product_id=product_id, batch_id=batch_id)
+    except Exception as e:
+        return RedirectResponse(
+            f"/admin/products/{product_id}/edit?tab={tab}&message={e!s}&message_type=error",
+            status_code=303,
+        )
+    return RedirectResponse(
+        f"/admin/products/{product_id}/edit?tab={tab}&message=Партия+удалена&message_type=success",
+        status_code=303,
+    )
+
+
+@router.post("/products/{product_id}/batches/{batch_id}", response_class=HTMLResponse)
+async def update_product_batch(
+    product_id: int,
+    batch_id: int,
+    quantity: int | None = Form(None),
+    expiry_date: str | None = Form(None),
+    tab: str = Query("products"),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_seller),
+):
+    admin_svc = AdminService(db)
+    try:
+        await admin_svc.update_batch_admin(
+            product_id=product_id,
+            batch_id=batch_id,
+            quantity=quantity,
+            expiry_date=expiry_date or None,
+        )
+    except Exception as e:
+        return RedirectResponse(
+            f"/admin/products/{product_id}/edit?tab={tab}&message={e!s}&message_type=error",
+            status_code=303,
+        )
+    return RedirectResponse(
+        f"/admin/products/{product_id}/edit?tab={tab}&message=Партия+обновлена&message_type=success",
         status_code=303,
     )
 

@@ -9,6 +9,7 @@ from app.test_data.load_data import seed_admin_and_products
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    import app.models.batches  # noqa: F401
     logger.info("🔄 Запуск PillStore...")
     await create_tables()
 

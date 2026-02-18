@@ -1,9 +1,10 @@
 from decimal import Decimal
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.db_crud.batch_crud import CrudBatch
 from app.db_crud.cart_crud import CrudCart
-from app.db_crud.products_crud import CrudProduct
 from app.db_crud.order_crud import CrudOrder
+from app.db_crud.products_crud import CrudProduct
 
 from app.models.cart_items import CartItem
 from app.models.orders import Order, OrderItem
@@ -23,6 +24,7 @@ class OrderService:
         self.cart_crud = CrudCart(session=session, model=CartItem)
         self.order_crud = CrudOrder(session=session, model=Order)
         self.product_crud = CrudProduct(session=session, model=Product)
+        self.batch_crud = CrudBatch(session)
 
     async def get_checkout_order(self, current_user) -> int:
         cart_items = await self.cart_crud.get_cart_items(current_user.id)
@@ -71,11 +73,30 @@ class OrderService:
 
         for item in order.items:
             product = await self.product_crud.get_by_id(item.product_id)
-            if product.stock < item.quantity:
-                raise BusinessError("Заказ", f"Товара {product.name} больше нет")
-            product.stock -= item.quantity
+            if not product:
+                raise BusinessError("Заказ", f"Товар {item.product_id} не найден")
+            total = (
+                await self.batch_crud.get_total_stock_from_batches(product.id)
+                if product.id
+                else 0
+            )
+            if total == 0:
+                total = product.stock or 0
+            if total < item.quantity:
+                raise BusinessError(
+                    "Заказ", f"Товара {product.name} больше нет"
+                )
+            try:
+                await self.batch_crud.deduct_fifo(
+                    product.id,
+                    item.quantity,
+                    order.id,
+                    item.id,
+                )
+            except ValueError as e:
+                raise BusinessError("Заказ", str(e)) from e
 
-        order.status = "pending"
+        order.status = "paid"
         await self.session.commit()
         return order
 
@@ -117,7 +138,9 @@ class OrderService:
         ):
             raise BusinessError("Заказ", "Нет доступа")
 
-        await self.order_crud.return_item(order_item)
+        await self.batch_crud.return_deductions_for_order_item(order_item)
+        await self.session.delete(order_item)
+        await self.session.flush()
         await self.order_crud.recalculate_total(order_item.order)
         await self.session.commit()
 
@@ -144,7 +167,20 @@ class OrderService:
         await self.order_crud.add_or_update_item(
             order, item_id, quantity, product.price
         )
-        product.stock -= quantity
+        await self.session.flush()
+        order_item = await self.order_crud.get_order_item_by_product(
+            order.id, item_id
+        )
+        if order_item:
+            try:
+                await self.batch_crud.deduct_fifo(
+                    item_id,
+                    quantity,
+                    order.id,
+                    order_item.id,
+                )
+            except ValueError as e:
+                raise BusinessError("Заказ", str(e)) from e
 
         await self.session.flush()
         await self.order_crud.recalculate_total(order)
@@ -183,11 +219,6 @@ class OrderService:
             raise BusinessError(
                 "Заказ", f"Нельзя отменить заказ со статусом '{order.status}'"
             )
-
-        # Return items to stock
-        for item in order.items:
-            if item.product:
-                item.product.stock += item.quantity
 
         order.status = "cancelled"
         await self.session.commit()

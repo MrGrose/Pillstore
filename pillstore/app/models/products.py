@@ -45,6 +45,11 @@ class Product(Base):
     order_items: Mapped[list["OrderItem"]] = relationship(  # noqa: F821
         "OrderItem", back_populates="product"
     )
+    batches: Mapped[list["ProductBatch"]] = relationship(  # noqa: F821
+        "ProductBatch",
+        back_populates="product",
+        cascade="all, delete-orphan",
+    )
 
     description_left: Mapped[str | None] = mapped_column(Text)
     description_right: Mapped[str | None] = mapped_column(Text)
@@ -53,7 +58,6 @@ class Product(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime, nullable=True, server_default=func.now()
     )
-    expiry_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
     categories = relationship(
         "Category", secondary=product_categories, back_populates="products"

@@ -1,35 +1,19 @@
-from fastapi import (
-    APIRouter,
-    Depends,
-    File,
-    HTTPException,
-    Query,
-    UploadFile,
-    status,
-)
-from sqlalchemy import or_, select
-from sqlalchemy.ext.asyncio import AsyncSession
-
 from app.core.deps import get_db
-from app.core.security import (
-    get_current_seller,
-    get_current_user_import,
-    get_current_user_optional,
-)
+from app.core.security import (get_current_seller, get_current_user_import,
+                               get_current_user_optional)
 from app.exceptions.handlers import ProductNotFoundError
 from app.models.categories import Category
 from app.models.products import Product
 from app.models.users import User as UserModel
-from app.schemas.product import (
-    ProductCreateAPI,
-    ProductImportList,
-    ProductListResponse,
-    ProductSchema,
-    ProductStockResponse,
-    ProductUpdateAPI,
-)
+from app.schemas.product import (ProductCreateAPI, ProductImportList,
+                                 ProductListResponse, ProductSchema,
+                                 ProductStockResponse, ProductUpdateAPI)
 from app.services.product_service import ProductService
 from app.utils.utils import save_image_from_url
+from fastapi import (APIRouter, Depends, File, HTTPException, Query,
+                     UploadFile, status)
+from sqlalchemy import or_, select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 product_router = APIRouter(prefix="/api/v2", tags=["API v2 Products"])
 
@@ -249,7 +233,7 @@ async def import_products(
             image_url=image_url,
             description_left=product_data.description_left,
             description_right=product_data.description_right,
-            stock=10,
+            stock=0,
             seller_id=current_user.id,
             category_id=[cat.id for cat in categories],
             categories=categories,

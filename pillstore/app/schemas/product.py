@@ -194,7 +194,6 @@ class ProductUpdateAPI(BaseModel):
     description_left: str = ""
     description_right: str = ""
     created_at: datetime | None = None
-    expiry_at: datetime | None = None
 
     @classmethod
     def as_form(  # noqa: C901
@@ -209,7 +208,6 @@ class ProductUpdateAPI(BaseModel):
         description_left: str = Form(""),
         description_right: str = Form(""),
         created_at: str | None = Form(None),
-        expiry_at: str | None = Form(None),
     ) -> "ProductUpdateAPI":
 
         cat_ids = []
@@ -224,13 +222,6 @@ class ProductUpdateAPI(BaseModel):
                 )
             except ValueError:
                 pass
-
-        expiry_at_dt = None
-        if expiry_at and expiry_at not in ["", "string", "null"]:
-            try:
-                expiry_at_dt = datetime.fromisoformat(expiry_at.replace("Z", "+00:00"))
-            except ValueError:
-                pass
         return cls(
             name=name,
             name_en=name_en,
@@ -242,7 +233,6 @@ class ProductUpdateAPI(BaseModel):
             description_left=description_left,
             description_right=description_right,
             created_at=created_at_dt,
-            expiry_at=expiry_at_dt,
         )
 
 

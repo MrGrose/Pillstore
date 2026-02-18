@@ -2,6 +2,7 @@ from fastapi import UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db_crud.admin_crud import CrudAdmin
+from app.db_crud.batch_crud import CrudBatch
 from app.db_crud.category_crud import CrudCategory
 from app.db_crud.order_crud import CrudOrder
 from app.db_crud.products_crud import CrudProduct
@@ -27,6 +28,7 @@ class AdminService:
         self.order_crud = CrudOrder(session=session, model=Order)
         self.product_crud = CrudProduct(session=session, model=Product)
         self.category_crud = CrudCategory(session=session, model=Category)
+        self.batch_crud = CrudBatch(session)
 
     async def _user_order_counts(self, users: list[User]) -> dict[int, int]:
         user_order_counts = {}
@@ -70,14 +72,10 @@ class AdminService:
             raise OrderNotFoundError(order_id)
 
         for item in order.items:
-            if item.product:
-                item.product.stock += item.quantity
+            await self.batch_crud.return_deductions_for_order_item(item)
 
         await self.session.delete(order)
         await self.session.commit()
-        for item in order.items:
-            if item.product:
-                await self.session.refresh(item.product, ["stock"])
 
     async def remove_product_admin(self, product_id: int) -> str:
         product = await self.product_crud.get_by_id(product_id)
@@ -169,3 +167,67 @@ class AdminService:
 
     async def get_product_by_id(self, product_id: int) -> Product | None:
         return await self.product_crud.get_by_id(product_id)
+
+    async def get_batches_for_product(self, product_id: int) -> list:
+        batches = await self.batch_crud.get_batches_by_product(
+            product_id, order_by_expiry_asc=True
+        )
+        result = []
+        for b in batches:
+            if b.quantity <= 0:
+                continue
+            used = sum(d.quantity for d in b.deductions)
+            result.append(
+                {
+                    "id": b.id,
+                    "expiry_date": b.expiry_date,
+                    "quantity": b.quantity,
+                    "batch_code": b.batch_code,
+                    "used": used,
+                    "deductions": b.deductions,
+                }
+            )
+        return result
+
+    async def add_batch_admin(
+        self,
+        product_id: int,
+        quantity: int,
+        expiry_date: str | None = None,
+    ) -> None:
+        product = await self.product_crud.get_by_id(product_id)
+        if not product:
+            raise ProductNotFoundError(product_id)
+        await self.batch_crud.add_batch(
+            product_id=product_id,
+            quantity=quantity,
+            expiry_date=expiry_date,
+            batch_code=None,
+        )
+        await self.session.commit()
+
+    async def delete_batch_admin(self, product_id: int, batch_id: int) -> None:
+        from app.models.batches import ProductBatch
+
+        batch = await self.session.get(ProductBatch, batch_id)
+        if not batch or batch.product_id != product_id:
+            raise ProductNotFoundError(batch_id)
+        await self.batch_crud.delete_batch(batch_id)
+        await self.session.commit()
+
+    async def update_batch_admin(
+        self,
+        product_id: int,
+        batch_id: int,
+        quantity: int | None = None,
+        expiry_date: str | None = None,
+    ) -> None:
+        from app.models.batches import ProductBatch
+
+        batch = await self.session.get(ProductBatch, batch_id)
+        if not batch or batch.product_id != product_id:
+            raise ProductNotFoundError(batch_id)
+        await self.batch_crud.update_batch(
+            batch_id, quantity=quantity, expiry_date=expiry_date
+        )
+        await self.session.commit()

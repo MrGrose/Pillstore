@@ -39,6 +39,16 @@ class CrudOrder(CRUDBase):
             .where(OrderItem.id == item_id, OrderItem.order_id == order_id)
         )
 
+    async def get_order_item_by_product(
+        self, order_id: int, product_id: int
+    ) -> OrderItem | None:
+        return await self.session.scalar(
+            select(OrderItem).where(
+                OrderItem.order_id == order_id,
+                OrderItem.product_id == product_id,
+            )
+        )
+
     async def return_item(self, order_item: OrderItem) -> None:
         order_item.product.stock += order_item.quantity
         await self.session.delete(order_item)
