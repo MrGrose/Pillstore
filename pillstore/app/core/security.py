@@ -1,19 +1,22 @@
-from fastapi.security import OAuth2PasswordBearer
 import jwt
-from fastapi import Depends, HTTPException, status, Request
+from fastapi import Depends, HTTPException, Request, status
+from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.users import User as UserModel
-from app.core.config import SECRET_KEY, ALGORITHM
+from app.core.config import ALGORITHM, SECRET_KEY
 from app.core.deps import get_db
 from app.exceptions.handlers import (
     AuthException,
-    TokenExpiredError,
     InvalidCredentialsError,
+    TokenExpiredError,
 )
+from app.models.users import User as UserModel
 from app.services.user_service import UserService
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="users/token")
+oauth2_scheme_swagger = OAuth2PasswordBearer(
+    tokenUrl="/api/v2/token", auto_error=False
+)
 
 
 def decode_token(token: str) -> dict:
@@ -77,14 +80,38 @@ async def get_current_user_optional(
 
 
 async def get_current_user_import(
-    token: str = Depends(oauth2_scheme),
+    token: str = Depends(oauth2_scheme_swagger),
     db: AsyncSession = Depends(get_db),
 ) -> UserModel:
-    payload = decode_token(token)
-    user_svc = UserService(db)
-    user = await user_svc.user_crud.get_user_by_email(payload["sub"])
+    if not token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Не авторизован",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
 
-    if user is None:
-        raise InvalidCredentialsError()
+    try:
+        payload = decode_token(token)
+        user_svc = UserService(db)
+        user = await user_svc.user_crud.get_user_by_email(payload["sub"])
 
-    return user
+        if user is None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Пользователь не найден",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+
+        return user
+    except TokenExpiredError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Срок действия токена истек",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    except InvalidCredentialsError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Неверный токен",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
