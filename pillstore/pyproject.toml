@@ -42,12 +42,28 @@ deep-translator = "1.11.4"
 [tool.poetry.group.dev.dependencies]
 pytest = "^9.0.2"
 pytest-asyncio = "^1.3.0"
+pytest-cov = "^6.0.0"
+httpx = "^0.28.0"
 ruff = "^0.14.14"
 black = "^24.8.0"
 
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["app/tests"]
+asyncio_default_fixture_loop_scope = "function"
+filterwarnings = ["ignore::DeprecationWarning"]
+
+[tool.coverage.run]
+source = ["app"]
+omit = ["app/tests/*", "app/migrations/*", "app/test_data/*", "*/__init__.py"]
+
+[tool.coverage.report]
+fail_under = 75
+exclude_lines = ["pragma: no cover", "if TYPE_CHECKING:", "raise NotImplementedError"]
 
 [tool.flake8]
 ignore = ['D100', 'D101', 'D102', 'D103', 'D104', 'D105', 'D106', 'D107', 'W503']

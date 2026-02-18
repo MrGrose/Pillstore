@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from fastapi.templating import Jinja2Templates
-from pydantic import field_validator
+from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -19,6 +19,7 @@ class Settings(BaseSettings):
     )
 
     ENV: str = "development"
+    TESTING: bool = False
     SECRET_KEY: str | None = None
     ALGORITHM: str = "HS256"
     PAGINATION_SIZES: list[int] = [10, 20, 50, 100]
@@ -47,13 +48,22 @@ class Settings(BaseSettings):
     def parse_comma_separated(cls, v: str | list[str]) -> list[str]:
         return _parse_comma_list(v) if isinstance(v, str) else v
 
+    @model_validator(mode="after")
+    def add_test_hosts(self) -> "Settings":
+        if self.TESTING and "test" not in self.ALLOWED_HOSTS:
+            self.ALLOWED_HOSTS = [*self.ALLOWED_HOSTS, "test", "testserver"]
+        return self
+
     @property
     def database_url(self) -> str:
-        if self.DATABASE_URL:
+        if self.DATABASE_URL and not self.TESTING:
             return self.DATABASE_URL
+        db_name = self.POSTGRES_DB
+        if self.TESTING and not db_name.endswith("_test"):
+            db_name = f"{db_name}_test" if db_name == "pillstore_db" else db_name
         return (
             f"postgresql+asyncpg://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}"
-            f"@{self.POSTGRES_HOST}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
+            f"@{self.POSTGRES_HOST}:{self.POSTGRES_PORT}/{db_name}"
         )
 
 
