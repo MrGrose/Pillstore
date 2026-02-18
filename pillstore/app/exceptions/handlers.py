@@ -1,4 +1,6 @@
 from fastapi import FastAPI, HTTPException, Request, status
+from fastapi.responses import JSONResponse
+
 from app.core.config import templates
 
 
@@ -55,9 +57,29 @@ class CartNotFoundError(NotFoundError):
         super().__init__("Корзина", cart_id)
 
 
-def setup_html_error_handlers(app: FastAPI):
+def is_api_request(request: Request) -> bool:
+    # Проверяем по пути
+    if request.url.path.startswith("/api/"):
+        return True
+
+    # Проверяем по заголовку Accept
+    accept_header = request.headers.get("accept", "")
+    if "application/json" in accept_header:
+        return True
+
+    return False
+
+
+def setup_html_error_handlers(app: FastAPI):  # noqa: C901
     @app.exception_handler(AuthException)
     async def auth_exception_handler(request: Request, exc: AuthException):
+        if is_api_request(request):
+            return JSONResponse(
+                status_code=exc.status_code,
+                content={"detail": exc.detail},
+                headers=exc.headers,
+            )
+
         return templates.TemplateResponse(
             "errors/admin_error.html",
             {
@@ -73,6 +95,13 @@ def setup_html_error_handlers(app: FastAPI):
 
     @app.exception_handler(HTTPException)
     async def http_exception_handler(request: Request, exc: HTTPException):
+        if is_api_request(request):
+            return JSONResponse(
+                status_code=exc.status_code,
+                content={"detail": exc.detail},
+                headers=exc.headers,
+            )
+
         return templates.TemplateResponse(
             "errors/admin_error.html",
             {
@@ -87,6 +116,12 @@ def setup_html_error_handlers(app: FastAPI):
 
     @app.exception_handler(NotFoundError)
     async def not_found_handler(request: Request, exc: NotFoundError):
+        if is_api_request(request):
+            return JSONResponse(
+                status_code=404,
+                content={"detail": str(exc)},
+            )
+
         context = {
             "request": request,
             "code": 404,
@@ -100,6 +135,12 @@ def setup_html_error_handlers(app: FastAPI):
 
     @app.exception_handler(BusinessError)
     async def business_error_handler(request: Request, exc: BusinessError):
+        if is_api_request(request):
+            return JSONResponse(
+                status_code=400,
+                content={"detail": str(exc), "entity": exc.entity},
+            )
+
         return templates.TemplateResponse(
             "errors/admin_error.html",
             {
@@ -114,6 +155,12 @@ def setup_html_error_handlers(app: FastAPI):
 
     @app.exception_handler(Exception)
     async def general_error_handler(request: Request, exc: Exception):
+        if is_api_request(request):
+            return JSONResponse(
+                status_code=500,
+                content={"detail": "Internal Server Error"},
+            )
+
         return templates.TemplateResponse(
             "errors/admin_error.html",
             {
