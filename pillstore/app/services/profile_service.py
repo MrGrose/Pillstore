@@ -1,9 +1,8 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.db_crud.order_crud import CrudOrder
 from app.models.orders import Order
 from app.models.users import User
-
-from app.db_crud.order_crud import CrudOrder
 
 
 class ProfileService:
