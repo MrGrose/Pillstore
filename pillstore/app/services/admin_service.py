@@ -57,7 +57,8 @@ class AdminService:
         if not order:
             raise OrderNotFoundError(order_id)
 
-        if new_status not in ["pending", "paid", "transit"]:
+        allowed = ("pending", "paid", "transit", "delivered", "cancelled")
+        if new_status not in allowed:
             raise BusinessError("Заказ", "Неверный статус")
 
         order.status = new_status

@@ -295,6 +295,8 @@
                                                 <option value="pending" {{ 'selected' if status_filter == 'pending' else '' }}>Ожидают оплаты</option>
                                                 <option value="paid" {{ 'selected' if status_filter == 'paid' else '' }}>Оплачено</option>
                                                 <option value="transit" {{ 'selected' if status_filter == 'transit' else '' }}>Транзит</option>
+                                                <option value="delivered" {{ 'selected' if status_filter == 'delivered' else '' }}>Доставлено</option>
+                                                <option value="cancelled" {{ 'selected' if status_filter == 'cancelled' else '' }}>Отменён</option>
                                             </select>
                                         </div>
                                     </div>
@@ -319,6 +321,8 @@
                                                         <option value="pending" {{ 'selected' if order.status == 'pending' else '' }}>Ожидает оплаты</option>
                                                         <option value="paid" {{ 'selected' if order.status == 'paid' else '' }}>Оплачено</option>
                                                         <option value="transit" {{ 'selected' if order.status == 'transit' else '' }}>Транзит</option>
+                                                        <option value="delivered" {{ 'selected' if order.status == 'delivered' else '' }}>Доставлено</option>
+                                                        <option value="cancelled" {{ 'selected' if order.status == 'cancelled' else '' }}>Отменён</option>
                                                     </select>
                                                 </form>
                                             </td>
