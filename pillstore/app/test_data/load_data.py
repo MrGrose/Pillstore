@@ -1,8 +1,9 @@
-from sqlalchemy.ext.asyncio import AsyncSession
 import json
 import os
 
-from app.api.api_products import import_products
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.api.v2.products import import_products
 from app.core.auth_utils import hash_password
 from app.core.logger import logger
 from app.db_crud.user_crud import CrudUser
