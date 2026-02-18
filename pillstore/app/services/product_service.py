@@ -27,6 +27,7 @@ from app.utils.utils import (
     remove_product_image,
     save_product_image,
 )
+from app.core.logger import logger
 from app.utils.iherb_scraper import IHerbScraper
 
 
@@ -96,6 +97,7 @@ class ProductService:
         scraper = IHerbScraper()
         product_data = scraper.parse_product_page(url)
         if not product_data:
+            logger.error("Импорт iHerb: не удалось распарсить url=%s", url)
             return "Не удалось распарсить", "error"
 
         product_create = ProductCreate(
