@@ -214,20 +214,3 @@ class AdminService:
             raise ProductNotFoundError(batch_id)
         await self.batch_crud.delete_batch(batch_id)
         await self.session.commit()
-
-    async def update_batch_admin(
-        self,
-        product_id: int,
-        batch_id: int,
-        quantity: int | None = None,
-        expiry_date: str | None = None,
-    ) -> None:
-        from app.models.batches import ProductBatch
-
-        batch = await self.session.get(ProductBatch, batch_id)
-        if not batch or batch.product_id != product_id:
-            raise ProductNotFoundError(batch_id)
-        await self.batch_crud.update_batch(
-            batch_id, quantity=quantity, expiry_date=expiry_date
-        )
-        await self.session.commit()

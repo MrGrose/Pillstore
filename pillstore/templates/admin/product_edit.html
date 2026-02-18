@@ -82,28 +82,35 @@
                                     <input type="datetime-local" name="created_at" 
                                         value="{{ created_at_iso }}" class="form-control" step="1">
                                 </div>
+                                {% if not product or batches is not defined %}
                                 <div class="col-md-6">
                                     <label class="form-label fw-bold pb-2 cursor-pointer">Склад</label>
-                                    {% if product and batches is defined %}
-                                    <input type="hidden" name="stock" value="{{ product.stock }}">
-                                    <div class="form-control-plaintext py-0 mb-2"><strong>{{ product.stock }}</strong> (сумма партий)</div>
-                                    <p class="form-label small mb-1 fw-bold">Партии по сроку годности (код партии — продукт‑id)</p>
+                                    <input type="number" name="stock" min="0" value="{{ product.stock if product else '' }}" class="form-control">
+                                </div>
+                                {% endif %}
+                            </div>
+                            {% if product and batches is defined %}
+                            <input type="hidden" name="url" value="{{ product.url or '' }}">
+                            <input type="hidden" name="is_active" value="{{ 'true' if product.is_active else 'false' }}">
+                            <input type="hidden" name="description_left" value="{{ product.description_left or '' }}">
+                            <input type="hidden" name="description_right" value="{{ product.description_right or '' }}">
+                    </form>
+                            {% endif %}
+                            {% if product and batches is defined %}
+                            <div class="row g-3 mt-0">
+                                <div class="col-md-6">
+                                    <label class="form-label fw-bold pb-2 cursor-pointer">Склад</label>
+                                    <div class="form-control-plaintext py-0 mb-2">Всего: <strong>{{ product.stock }}</strong></div>
                                     <ul class="list-group list-group-flush mb-2">
                                         {% for b in batches %}
                                         <li class="list-group-item px-0 py-2 small">
                                             <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
                                                 <span>
-                                                    <strong>{{ b.quantity }}</strong> пачек
-                                                    {% if b.expiry_date %} до {{ b.expiry_date.strftime('%d.%m.%Y') }}{% endif %}
+                                                    <strong>{{ b.quantity }}</strong> шт -
+                                                    {% if b.expiry_date %} сроком до годности {{ b.expiry_date.strftime('%d.%m.%Y') }}{% endif %}
                                                     {% if b.batch_code %} <code>{{ b.batch_code }}</code>{% endif %}
-                                                    <span class="text-muted">[{{ b.used }} исп.]</span>
                                                 </span>
                                                 <div class="d-flex flex-wrap align-items-center gap-1">
-                                                    <form method="post" action="/admin/products/{{ product.id }}/batches/{{ b.id }}?tab={{ tab }}" class="d-inline-flex align-items-center gap-1">
-                                                        <input type="number" name="quantity" min="{{ b.used }}" value="{{ b.quantity }}" class="form-control form-control-sm" style="width: 60px;" title="мин. {{ b.used }}">
-                                                        <input type="date" name="expiry_date" value="{{ b.expiry_date.strftime('%Y-%m-%d') if b.expiry_date else '' }}" class="form-control form-control-sm" style="width: 120px;">
-                                                        <button type="submit" class="btn btn-sm btn-outline-secondary">Изменить</button>
-                                                    </form>
                                                     <form method="post" action="/admin/products/{{ product.id }}/batches/{{ b.id }}/delete?tab={{ tab }}" class="d-inline" onsubmit="return confirm('Удалить партию?');">
                                                         <button type="submit" class="btn btn-sm btn-outline-danger">Удалить</button>
                                                     </form>
@@ -114,24 +121,31 @@
                                         <li class="list-group-item px-0 py-2 text-muted small">Партий нет.</li>
                                         {% endfor %}
                                     </ul>
-                                    <div class="d-flex flex-wrap align-items-end gap-2">
+                                    <form method="post" action="/admin/products/{{ product.id }}/batches?tab={{ tab }}" class="d-flex flex-wrap align-items-end gap-2">
                                         <div>
                                             <label class="form-label small mb-0">Кол-во пачек *</label>
-                                            <input type="number" name="quantity" min="1" class="form-control form-control-sm" style="width: 80px;" form="form-add-batch" required>
+                                            <input type="number" name="quantity" min="1" value="1" class="form-control form-control-sm" style="width: 80px;" required>
                                         </div>
                                         <div>
                                             <label class="form-label small mb-0">Срок годности</label>
-                                            <input type="date" name="expiry_date" class="form-control form-control-sm" style="width: 140px;" form="form-add-batch">
+                                            <input type="date" name="expiry_date" class="form-control form-control-sm" style="width: 140px;">
                                         </div>
-                                        <form id="form-add-batch" method="post" action="/admin/products/{{ product.id }}/batches?tab={{ tab }}" class="d-inline">
-                                            <button type="submit" class="btn btn-sm btn-outline-primary">Добавить партию</button>
-                                        </form>
-                                    </div>
-                                    {% else %}
-                                    <input type="number" name="stock" min="0" value="{{ product.stock if product else '' }}" class="form-control">
-                                    {% endif %}
+                                        <button type="submit" class="btn btn-sm btn-outline-primary">Добавить партию</button>
+                                    </form>
                                 </div>
                             </div>
+                            {% endif %}
+                    {% if product and batches is defined %}
+                    <form method="post" action="{{ action_url }}" enctype="multipart/form-data" class="mt-3">
+                       <input type="hidden" name="product_id_str" value="{{ product.id }}">
+                       <input type="hidden" name="name" value="{{ product.name }}">
+                       <input type="hidden" name="brand" value="{{ product.brand or '' }}">
+                       <input type="hidden" name="price" value="{{ product.price }}">
+                       <input type="hidden" name="created_at" value="{{ created_at_iso }}">
+                       <input type="hidden" name="stock" value="{{ product.stock }}">
+                       <input type="hidden" name="is_active" value="{{ 'true' if product.is_active else 'false' }}">
+                       {% for c in product.categories %}<input type="hidden" name="category_ids" value="{{ c.id }}">{% endfor %}
+                    {% endif %}
                             <div class="row g-3">
                                 <div class="col-md-6">
                                     <label class="form-label fw-bold pb-2 cursor-pointer">URL</label>
