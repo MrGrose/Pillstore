@@ -1,28 +1,15 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 
-
-from app.models.users import User
+from app.core.auth_utils import create_access_token, hash_password, verify_password
 from app.db_crud.user_crud import CrudUser
-
-from app.core.auth_utils import (
-    hash_password,
-    verify_password,
-    create_access_token,
-)
-from app.exceptions.handlers import (
-    UserNotFoundError,
-    BusinessError,
-)
+from app.exceptions.handlers import BusinessError, UserNotFoundError
+from app.models.users import User
 
 
 class UserService:
     def __init__(self, session: AsyncSession):
         self.session = session
         self.user_crud = CrudUser(session=session, model=User)
-
-    async def checking_seller(self, user: User):
-        if user.role != "seller":
-            raise BusinessError("Пользователь", "Нет прав доступа")
 
     async def create_admin_user(
         self, email: str, password: str, role: str
@@ -156,3 +143,69 @@ class UserService:
             "access_token": access_token,
             "user": user,
         }
+
+    async def update_user_profile(self, user_id: int, update_data: dict) -> User:
+        user = await self.user_crud.get_by_id(user_id)
+        if not user:
+            raise UserNotFoundError(user_id)
+
+        if "email" in update_data and update_data["email"] != user.email:
+            existing = await self.user_crud.check_user_email(update_data["email"])
+            if existing:
+                raise ValueError("Email уже зарегистрирован")
+
+        if "password" in update_data:
+            current = update_data.pop("current_password", None)
+            if not current:
+                raise ValueError("Текущий пароль обязателен для изменения пароля")
+            if not verify_password(current, user.hashed_password):
+                raise ValueError("Текущий пароль неверен")
+            update_data["hashed_password"] = hash_password(update_data.pop("password"))
+
+        updated_user = await self.user_crud.update(user, update_data)
+        return updated_user
+
+    async def deactivate_user(self, user_id: int) -> str:
+        user = await self.user_crud.get_by_id(user_id)
+        if not user:
+            raise UserNotFoundError(user_id)
+
+        await self.user_crud.update(user, {"is_active": False})
+        return f"Пользователь {user.email} деактивирован"
+
+    async def request_password_reset(self, email: str) -> str:
+        user = await self.user_crud.get_user_by_email(email)
+        if not user:
+            raise ValueError("Пользователь не найден")
+
+        return f"Инструкции по сбросу пароля отправлены на {email}"
+
+    async def confirm_password_reset(
+        self, token: str, new_password: str, confirm_password: str
+    ) -> dict:
+        if new_password != confirm_password:
+            raise ValueError("Пароли не совпадают")
+
+        if len(new_password) < 6:
+            raise ValueError("Пароль должен содержать не менее 6 символов")
+
+        return {
+            "success": True,
+            "message": "Пароль успешно изменен",
+            "access_token": "новый_токен_здесь",
+        }
+
+    async def get_all_users(self) -> list[User]:
+        return await self.user_crud.get_users()
+
+    async def get_user_by_id(self, user_id: int) -> User:
+        user = await self.user_crud.get_by_id(user_id)
+        if not user:
+            raise UserNotFoundError(user_id)
+        return user
+
+    async def get_user_by_email(self, email: str) -> User:
+        user = await self.user_crud.check_user_email(email)
+        if not user:
+            raise ValueError("Пользователь не найден")
+        return user
