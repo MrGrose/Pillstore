@@ -143,6 +143,7 @@ class ProductUpdate(BaseModel):
     category_ids: list[int] = []
     description_left: str = ""
     description_right: str = ""
+    created_at: datetime | None = None
 
 
 class ProductStockResponse(BaseModel):
