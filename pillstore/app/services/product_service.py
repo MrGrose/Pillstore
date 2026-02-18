@@ -1,5 +1,5 @@
 from decimal import Decimal
-from fastapi import Request
+from fastapi import HTTPException, Request, UploadFile, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.cart_items import CartItem
@@ -11,12 +11,22 @@ from app.db_crud.cart_crud import CrudCart
 from app.db_crud.products_crud import CrudProduct
 from app.db_crud.category_crud import CrudCategory
 
-from app.schemas.product import ProductCreate, ProductPagination
+from app.schemas.product import (
+    ProductCreate,
+    ProductCreateAPI,
+    ProductPagination,
+    ProductUpdateAPI,
+)
 from app.schemas.category import CategoryTreeOut
 
 from app.exceptions.handlers import ProductNotFoundError
 
-from app.utils.utils import formatted_description, save_image_from_url
+from app.utils.utils import (
+    formatted_description,
+    save_image_from_url,
+    remove_product_image,
+    save_product_image,
+)
 from app.utils.iherb_scraper import IHerbScraper
 
 
@@ -130,6 +140,13 @@ class ProductService:
 
         return f"ID {db_product.id} {product_create.name} импортирован", "success"
 
+    async def get_products_list(
+        self, page: int = 1, page_size: int = 20
+    ) -> tuple[list[Product], int]:
+        return await self.crud.get_products_paginated(
+            is_active=True, page=page, page_size=page_size
+        )
+
     async def get_products_page_active(
         self,
         page_active: int,
@@ -164,4 +181,87 @@ class ProductService:
             category_id,
             is_active=False,
             tab_prefix="page_inactive",
+        )
+
+    async def update_product_api(
+        self,
+        product_id: int,
+        data: ProductUpdateAPI,
+        category_ids: list[int],
+        image: UploadFile | None = None,
+    ) -> tuple[str, str]:
+        product = await self.crud.get_by_id_with_categories(product_id)
+        if not product:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Продукт с id:{product_id} не найден",
+            )
+
+        update_dict = data.model_dump(exclude_unset=True)
+        for key, value in update_dict.items():
+            if hasattr(product, key) and value is not None:
+                setattr(product, key, value)
+
+        if image and image.filename:
+            if product.image_url:
+                remove_product_image(product.image_url)
+            product.image_url = await save_product_image(image)
+
+        if category_ids is not None:
+            new_categories = await self.cat.get_by_ids(category_ids)
+            product.categories = new_categories
+
+        self.session.add(product)
+        await self.session.commit()
+        await self.session.refresh(product)
+
+        return f"Продукт с id:{product.id} {product.name} обновлен", "success"
+
+    async def create_product_api(
+        self,
+        data: ProductCreateAPI,
+        seller_id: int,
+        image: UploadFile | None = None,
+    ) -> Product:
+
+        category_ids = []
+        if data.categories:
+            if data.categories and all(isinstance(c, int) for c in data.categories):
+                category_ids = data.categories
+                categories = await self.cat.get_by_ids(category_ids)
+                if len(categories) != len(category_ids):
+                    existing_ids = [c.id for c in categories]
+                    missing = set(category_ids) - set(existing_ids)
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail=f"Категории с ID {missing} не найдены",
+                    )
+            else:
+                categories = await self.cat.create_category_hierarchy(data.categories)
+                category_ids = [cat.id for cat in categories]
+
+        product_dict = data.model_dump(exclude={"categories"})
+        product_dict["seller_id"] = seller_id
+        product_dict["category_id"] = category_ids
+        product = await self.crud.create(product_dict)
+
+        if image and image.filename:
+            product.image_url = await save_product_image(image)
+
+        if category_ids:
+            categories = await self.cat.get_by_ids(category_ids)
+            product.categories = categories
+            self.session.add(product)
+
+        await self.session.commit()
+        await self.session.refresh(product)
+
+        return product
+
+    async def api_inactive_product(self, product_id: int) -> tuple[str, str]:
+        product = await self.crud.get_by_id(product_id)
+        product_inactive = await self.crud.inactive_product(product.id)
+        return (
+            f"Продукт с id:{product_inactive.id} {product_inactive.name} не активен",
+            "success",
         )
