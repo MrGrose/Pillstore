@@ -2,9 +2,9 @@ from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import HTMLResponse
 
 from app.core.config import templates
-from app.services.cart import get_cart_count
 from app.core.security import get_current_user_optional
 from app.models.users import User
+from app.services.cart import get_cart_count
 
 router = APIRouter()
 

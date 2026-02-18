@@ -1,11 +1,11 @@
-from fastapi import APIRouter, Form, Depends, Request
+from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.core.deps import get_db
+
 from app.core.auth_utils import create_access_token
-from app.core.config import templates
+from app.core.config import MAX_AGE, templates
+from app.core.deps import get_db
 from app.services.user_service import UserService
-from app.core.config import MAX_AGE
 
 
 auth_router = APIRouter(prefix="/auth")

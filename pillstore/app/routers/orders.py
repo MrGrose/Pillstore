@@ -1,21 +1,17 @@
-from fastapi import APIRouter, Depends, status, Form, Request
+from fastapi import APIRouter, Depends, Form, Request, status
 from fastapi.responses import HTMLResponse, RedirectResponse
-
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.security import get_current_user
-from app.core.deps import get_db
 from app.core.config import templates
-
-from app.models.users import User as UserModel
+from app.core.deps import get_db
+from app.core.security import get_current_user
 from app.models.products import Product
-
-from app.schemas.order import Order as OrderSchema
-
+from app.models.users import User as UserModel
+from app.schemas.order import OrderSchema
 from app.services.cart import get_cart_count
-from app.services.order_service import OrderService
 from app.services.cart_service import CartService
+from app.services.order_service import OrderService
 from app.services.product_service import ProductService
 
 

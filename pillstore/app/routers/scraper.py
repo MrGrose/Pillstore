@@ -1,10 +1,9 @@
-from fastapi import APIRouter, Form, Depends
+from fastapi import APIRouter, Depends, Form
 from fastapi.responses import RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.core.deps import get_db
-
 from app.core.security import get_current_seller
-
 from app.models.users import User
 from app.services.product_service import ProductService
 
