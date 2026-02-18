@@ -26,7 +26,7 @@ class CrudUser(CRUDBase):
     async def get_user_by_email(self, email: str) -> User | None:
         result = await self.session.scalars(
             select(self.model).where(
-                self.model.email == email, self.model.is_active == True
+                self.model.email == email, self.model.is_active.is_(True)
             )
         )
         return result.first()

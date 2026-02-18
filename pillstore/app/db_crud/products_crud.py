@@ -1,13 +1,11 @@
-from sqlalchemy import and_, select, func, or_, Select
-from sqlalchemy.orm import selectinload
-
-from app.db_crud.base import CRUDBase
-from app.schemas.product import ProductPagination, PageUrls, ProductUpdate
-from fastapi import HTTPException, Request, status
-
 from app.core.config import PAGINATION_SIZES
-from app.models.products import Product
+from app.db_crud.base import CRUDBase
 from app.models.orders import OrderItem
+from app.models.products import Product
+from app.schemas.product import PageUrls, ProductPagination, ProductUpdate
+from fastapi import HTTPException, Request, status
+from sqlalchemy import Select, and_, func, or_, select
+from sqlalchemy.orm import selectinload
 
 
 class CrudProduct(CRUDBase):
@@ -231,3 +229,34 @@ class CrudProduct(CRUDBase):
             select(self.model).where(self.model.url == url)
         )
         return result.first()
+
+    async def get_products_paginated(
+        self, is_active: bool, page: int = 1, page_size: int = 20
+    ) -> tuple[list[Product], int]:
+        total = await self.get_products_count(is_active)
+        stmt = (
+            select(self.model)
+            .where(self.model.is_active == is_active)
+            .order_by(self.model.id.asc())
+            .offset((page - 1) * page_size)
+            .limit(page_size)
+        )
+        items = list((await self.session.scalars(stmt)).all())
+        return items, total
+
+    async def get_products_count(self, is_active: bool) -> int:
+        result = await self.session.scalar(
+            select(func.count())
+            .select_from(self.model)
+            .where(self.model.is_active == is_active)
+        )
+        return result or 0
+
+    async def inactive_product(self, product_id: int) -> Product:
+        product = await self.get_by_id(product_id)
+        product.is_active = False
+        self.session.add(product)
+        await self.session.commit()
+        await self.session.refresh(product)
+
+        return product

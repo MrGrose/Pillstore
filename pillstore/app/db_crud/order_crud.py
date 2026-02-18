@@ -1,10 +1,10 @@
 from decimal import Decimal
-from sqlalchemy import Select, func, select
-from sqlalchemy.orm import selectinload
 
 from app.db_crud.base import CRUDBase
 from app.models.orders import Order, OrderItem
 from app.models.users import User
+from sqlalchemy import func, select
+from sqlalchemy.orm import selectinload
 
 
 class CrudOrder(CRUDBase):
@@ -76,7 +76,9 @@ class CrudOrder(CRUDBase):
 
     async def orders_for_profile(self, user: int) -> list[Order]:
         db_orders = await self.session.scalars(
-            select(self.model).where(self.model.user_id == user)
+            select(self.model)
+            .where(self.model.user_id == user)
+            .order_by(self.model.created_at.desc())
         )
         orders = list(db_orders.all())
         return orders
@@ -87,19 +89,27 @@ class CrudOrder(CRUDBase):
         )
         return result
 
-    async def get_orders_list(self, status_filter: str | None) -> list[Order]:
+    async def get_orders_user_list(
+        self,
+        status_filter: str | None = None,
+        load_items: bool = False,
+    ) -> list[Order]:
         query = (
             select(self.model)
             .options(selectinload(self.model.user))
             .order_by(self.model.created_at.desc())
         )
+        if load_items:
+            query = query.options(
+                selectinload(self.model.items).selectinload(OrderItem.product)
+            )
         if status_filter and status_filter != "all":
             query = query.where(self.model.status == status_filter)
         result = await self.session.scalars(query)
         return list(result.all())
 
     async def get_order(
-        self, order_id: int, user_id: int = None, load_products: bool = False
+        self, order_id: int, user_id: int | None = None, load_products: bool = False
     ) -> Order:
         stmt = select(self.model).options(selectinload(self.model.items))
         if load_products:
@@ -113,3 +123,37 @@ class CrudOrder(CRUDBase):
         stmt = stmt.options(selectinload(self.model.user))
 
         return await self.session.scalar(stmt)
+
+    async def get_orders_paginated(
+        self,
+        user_id: int | None = None,
+        status_filter: str | None = None,
+        page: int = 1,
+        page_size: int = 10,
+    ) -> tuple[list[Order], int]:
+        conditions = []
+        if user_id is not None:
+            conditions.append(self.model.user_id == user_id)
+        if status_filter and status_filter != "all":
+            conditions.append(self.model.status == status_filter)
+
+        count_stmt = select(func.count()).select_from(self.model)
+        if conditions:
+            count_stmt = count_stmt.where(*conditions)
+        total = int((await self.session.execute(count_stmt)).scalar() or 0)
+
+        stmt = (
+            select(self.model)
+            .options(
+                selectinload(self.model.user),
+                selectinload(self.model.items).selectinload(OrderItem.product),
+            )
+            .order_by(self.model.created_at.desc())
+            .offset((page - 1) * page_size)
+            .limit(page_size)
+        )
+        if conditions:
+            stmt = stmt.where(*conditions)
+
+        orders = list((await self.session.scalars(stmt)).all())
+        return orders, total
