@@ -10,6 +10,13 @@ from app.services.product_service import ProductService
 router = APIRouter(prefix="/admin")
 
 
+def _normalize_iherb_url(url: str) -> str:
+    url = (url or "").strip()
+    if url and not url.startswith(("http://", "https://")):
+        return f"https://{url}"
+    return url
+
+
 @router.post("/products/iherb-import")
 async def iherb_import(
     url: str = Form(...),
@@ -17,6 +24,7 @@ async def iherb_import(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_seller),
 ):
+    url = _normalize_iherb_url(url)
     product_service = ProductService(db)
     message, msg_type = await product_service.import_iherb_product(url, current_user)
 
