@@ -4,6 +4,18 @@
 
 {% block content %}
 
+{% if request.query_params.get('confirmed') %}
+<div class="alert alert-success order-success-alert animate__animated animate__fadeIn" role="alert">
+    <div class="d-flex align-items-center">
+        <i class="fas fa-check-circle text-success me-3 fs-1"></i>
+        <div>
+            <h4>Заказ #{{ order.id }} принят!</h4>
+            <p>Мы свяжемся в течение 45 минут</p>
+        </div>
+    </div>
+</div>
+{% endif %}
+
 <div class="container py-5">
     <div class="row justify-content-center">
         <div class="col-lg-10">
@@ -28,13 +40,26 @@
                 <div class="card-body p-0">
                     {% for item in order.items %}
                     <div class="row g-0 align-items-center p-4 border-bottom">
-                        <div class="col-md-2 p-3">
+                        <div class="col-md-2 p-3 position-relative">
                             <img src="{{ item.product.image_url or '/static/no-image.jpg' }}" 
-                                 class="img-fluid rounded-3 shadow-sm w-100"
-                                 style="height: 120px; object-fit: cover;"
-                                 alt="{{ item.product.name }}">
+                                class="img-fluid rounded-3 shadow-sm w-100"
+                                style="height: 120px; object-fit: cover;"
+                                alt="{{ item.product.name }}">
+                            <div class="mt-2 text-center">
+                                {% if is_admin %}
+                                <form action="/orders/{{ order.id }}/items/{{ item.id }}/return" method="post" class="d-inline">
+                                    <button type="submit" class="btn btn-outline-danger btn-sm px-3 py-1 shadow-sm" 
+                                            onclick="return confirm('Вернуть {{ item.quantity }} × {{ item.product.name }}?')"
+                                            title="Вернуть на склад">
+                                        <i class="fas fa-arrow-rotate-left me-1"></i>
+                                        <small>Убрать</small>
+                                    </button>
+                                </form>
+                                {% endif %}
+                            </div>
                         </div>
                         <div class="col-md-5 p-4">
+                            
                             <h5 class="mb-2 fw-semibold">{{ item.product.name }}</h5>
                             <p class="mb-2 text-muted">{{ item.product.brand }}</p>
                             <div class="row text-muted small">
@@ -43,10 +68,13 @@
                                     {{ item.product.id }}
                                 </div>
                                 <div class="col-6">
+                                    {% if is_admin %}
                                     <i class="fas fa-layer-group me-1"></i>
                                     Остаток: {{ item.product.stock }}
+                                    {% endif %}
                                 </div>
                             </div>
+                            
                         </div>
                         <div class="col-md-2 text-md-center py-4">
                             <div class="h3 fw-bold text-primary mb-1">{{ item.quantity }}</div>
@@ -58,22 +86,38 @@
                             </div>
                             <small class="text-muted">за товары</small>
                         </div>
-                        <div class="col-md-3 text-md-end py-4 pe-4">
-                            <div class="h3 fw-bold text-success mb-1">
-                                {{ "%.2f"|format(item.total_price) }}
-                            </div>
-                            <small class="text-muted">за товары</small>
-                        
-                            <form action="/orders/{{ order.id }}/items/{{ item.id }}/return" method="post" class="d-inline mt-2">
-                                <button type="submit" class="btn btn-sm btn-outline-warning" 
-                                        onclick="return confirm('Вернуть {{ item.quantity }}шт {{ item.product.name }} на склад?')">
-                                    <i class="fas fa-undo me-1"></i>Вернуть на склад
-                                </button>
-                            </form>
-                        </div>
                     </div>
                     {% endfor %}
                 </div>
+                {% if is_admin %}
+                <div class="card-footer bg-light border-top py-4">
+                    <h6 class="mb-3 text-uppercase text-muted">
+                        <i class="fas fa-plus-circle me-2"></i>Добавить товар в заказ
+                    </h6>
+                    <form action="/orders/{{ order.id }}/items/" method="post" class="row g-3 align-items-end">
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Товар</label>
+                            <select name="item_id" class="form-select" required>
+                                <option value="">Выберите товар...</option>
+                                {% for product in available_products %}
+                                <option value="{{ product.id }}">
+                                    {{ product.name }} ({{ product.stock }} шт.)
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label fw-semibold">Количество</label>
+                            <input type="number" name="quantity" value="1" min="1" max="99" class="form-control">
+                        </div>
+                        <div class="col-md-3">
+                            <button type="submit" class="btn btn-primary w-100 h-100">
+                                <i class="fas fa-plus me-2"></i>Добавить
+                            </button>
+                        </div>
+                    </form>
+                </div>
+                {% endif %}
             <div class="card shadow-lg mb-5">
                 <div class="card-body p-4">
                     <div class="row align-items-center">
@@ -81,10 +125,10 @@
                             <h5 class="mb-2">
                                 {% if order.status == 'paid' or order.status == 'completed' %}
                                     <i class="fas fa-check-circle text-success me-2"></i>
-                                    Оплачено ✅
+                                    Оплачено
                                 {% else %}
                                     <i class="fas fa-clock text-warning me-2"></i>
-                                    Ожидает оплаты ⏳
+                                    Ожидает оплаты
                                 {% endif %}
                             </h5>
                         </div>

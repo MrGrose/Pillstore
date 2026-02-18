@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from sqlalchemy import Boolean, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -14,6 +16,12 @@ class User(Base):
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     role: Mapped[str] = mapped_column(String, default="buyer")
 
-    products: Mapped[list["Product"]] = relationship("Product", back_populates="seller")
-    cart_items: Mapped[list["CartItem"]] = relationship("CartItem", back_populates="user", cascade="all, delete-orphan")
-    orders: Mapped[list["Order"]] = relationship("Order", back_populates="user", cascade="all, delete-orphan")
+    products: Mapped[list["Product"]] = relationship(  # noqa: F821
+        "Product", back_populates="seller"
+    )
+    cart_items: Mapped[list["CartItem"]] = relationship(  # noqa: F821
+        "CartItem", back_populates="user", cascade="all, delete-orphan"
+    )
+    orders: Mapped[list["Order"]] = relationship(  # noqa: F821
+        "Order", back_populates="user", cascade="all, delete-orphan"
+    )

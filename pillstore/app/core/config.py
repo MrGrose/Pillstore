@@ -11,8 +11,6 @@ load_dotenv()
 SECRET_KEY = os.getenv("SECRET_KEY")
 ALGORITHM = "HS256"
 PAGINATION_SIZES = [10, 20, 50, 100]
-
-# CATEGORIES = {
-#     1: {"id": 1, "name": "Витамины", "slug": "vitamins", "icon": "fas fa-pills"},
-#     2: {"id": 2, "name": "Протеины", "slug": "proteins", "icon": "fas fa-dumbbell"},
-# }
+MAX_AGE = 86400
+ACCESS_TOKEN_EXPIRE_MINUTES = 1440
+REFRESH_TOKEN_EXPIRE_DAYS = 7

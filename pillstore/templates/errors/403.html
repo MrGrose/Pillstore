@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}Нет доступа - PillStore{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-8 col-xl-6 text-center">
+            <div class="d-inline-flex align-items-center justify-content-center mb-4 bg-danger-subtle rounded-circle" style="width: 120px; height: 120px;">
+                <i class="fas fa-ban fs-1 text-danger"></i>
+            </div>
+            <h1 class="fw-bold display-2 text-danger mb-3">403</h1>
+            <h2 class="h1 fw-normal text-dark mb-4 lh-1">
+                Доступ запрещён
+            </h2>
+            <p class="lead text-muted mb-5 px-4">
+                К сожалению, у вас нет прав для доступа к этой странице.
+            </p>
+            <div class="d-flex flex-column flex-md-row gap-3 justify-content-center mb-5">
+                <a href="/products" class="btn btn-primary btn-lg px-4">
+                    <i class="fas fa-home me-2"></i>
+                    На главную
+                </a>
+                <a href="javascript:history.back()" class="btn btn-outline-secondary btn-lg px-4">
+                    <i class="fas fa-arrow-left me-2"></i>
+                    Назад
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
