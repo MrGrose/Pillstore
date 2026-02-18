@@ -85,7 +85,6 @@ pillstore/
 ├── docker-compose.yml       # Docker Compose
 ├── Dockerfile               # Образ приложения
 ├── pyproject.toml           # Зависимости Poetry
-├── requirements.txt        # Экспорт зависимостей
 ├── media/                   # Загружаемые файлы
 ├── static/                 # Статические файлы (CSS, JS)
 ├── templates/              # Jinja2 HTML шаблоны
