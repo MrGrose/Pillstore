@@ -50,5 +50,5 @@ media/
 Makefile
 poetry.lock
 .vscode/
-../.editorconfig
-../.gitconfig
+.editorconfig
+.gitconfig
