@@ -139,6 +139,7 @@ class ProductUpdate(BaseModel):
     brand: str = ""
     price: float | None = None
     stock: int | None = None
+    url: str | None = None
     is_active: bool = True
     category_ids: list[int] = []
     description_left: str = ""

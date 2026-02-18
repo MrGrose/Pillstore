@@ -205,6 +205,7 @@ async def admin_product_update(
     brand: str = Form(None),
     price: float = Form(...),
     stock: int = Form(0),
+    url: str | None = Form(None),
     description_left: str = Form(None),
     description_right: str = Form(None),
     is_active: bool = Form(True),
@@ -214,12 +215,14 @@ async def admin_product_update(
     current_user: User = Depends(get_current_seller),
 ):
     parsed_created_at = datetime.fromisoformat(created_at) if created_at else None
+    url_value = (url or "").strip() or None
     data = ProductUpdate(
         name=name,
         name_en=name_en,
         brand=brand or "",
         price=price,
         stock=stock,
+        url=url_value,
         is_active=is_active,
         category_ids=category_ids,
         description_left=description_left or "",

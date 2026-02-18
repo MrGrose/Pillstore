@@ -88,6 +88,9 @@
                                     <input type="number" name="stock" min="0" value="{{ product.stock if product else '' }}" class="form-control">
                                 </div>
                                 {% endif %}
+                                {% if product and batches is not defined %}
+                                <input type="hidden" name="url" value="{{ product.url or '' }}">
+                                {% endif %}
                             </div>
                             {% if product and batches is defined %}
                             <input type="hidden" name="url" value="{{ product.url or '' }}">
@@ -148,9 +151,9 @@
                     {% endif %}
                             <div class="row g-3">
                                 <div class="col-md-6">
-                                    <label class="form-label fw-bold pb-2 cursor-pointer">URL</label>
-                                    <input type="url" name="url" 
-                                        value="{{ product.url if product else '' }}" class="form-control">
+                                    <label class="form-label fw-bold pb-2 cursor-pointer">URL (необязательно)</label>
+                                    <input type="text" name="url" 
+                                        value="{{ product.url or '' }}" class="form-control" placeholder="">
                                 </div>
                                 <div class="col-md-6">
                                     <label class="form-label fw-bold pb-2 cursor-pointer">Статус</label>
