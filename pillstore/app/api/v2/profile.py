@@ -15,7 +15,7 @@ async def api_get_profile(
     db: AsyncSession = Depends(get_db),
     current_user: UserModel = Depends(get_current_user),
 ):
-    """Профиль текущего пользователя и список его заказов (GET)."""
+    """Профиль текущего пользователя и список его заказов."""
     profile_service = ProfileService(db)
     orders = await profile_service.get_orders_profile(current_user)
 

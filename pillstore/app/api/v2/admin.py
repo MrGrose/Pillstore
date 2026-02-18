@@ -27,7 +27,7 @@ admin_router = APIRouter(prefix="/api/v2", tags=["API v2 Admin"])
 
 
 def _product_to_schema(p) -> ProductSchema:
-    """ORM Product -> ProductSchema (image_url может быть None)."""
+    """Преобразование ORM Product в ProductSchema (image_url может быть пустым)."""
     return ProductSchema(
         id=p.id,
         name=p.name,
@@ -43,7 +43,7 @@ async def api_admin_stats(
     db: AsyncSession = Depends(get_db),
     current_user: UserModel = Depends(get_current_seller),
 ):
-    """Статистика дашборда (только seller)."""
+    """Статистика дашборда (только для продавца)."""
     admin_service = AdminService(db)
     return await admin_service.get_stats()
 
@@ -53,7 +53,7 @@ async def api_admin_get_users(
     db: AsyncSession = Depends(get_db),
     current_user: UserModel = Depends(get_current_seller),
 ):
-    """Список пользователей (только seller)."""
+    """Список пользователей (только для продавца)."""
     user_service = UserService(db)
     return await user_service.get_all_users()
 
@@ -64,7 +64,7 @@ async def api_admin_create_user(
     db: AsyncSession = Depends(get_db),
     current_user: UserModel = Depends(get_current_seller),
 ):
-    """Создать пользователя (только seller)."""
+    """Создать пользователя (только для продавца)."""
     user_service = UserService(db)
     try:
         await user_service.create_admin_user(
@@ -86,7 +86,7 @@ async def api_admin_update_user(
     db: AsyncSession = Depends(get_db),
     current_user: UserModel = Depends(get_current_seller),
 ):
-    """Обновить пользователя (только seller)."""
+    """Обновить пользователя (только для продавца)."""
     user_service = UserService(db)
     try:
         await user_service.update_admin_user(
@@ -108,7 +108,7 @@ async def api_admin_delete_user(
     db: AsyncSession = Depends(get_db),
     current_user: UserModel = Depends(get_current_seller),
 ):
-    """Удалить пользователя (только seller)."""
+    """Удалить пользователя (только для продавца)."""
     user_service = UserService(db)
     try:
         msg = await user_service.delete_admin_user(user_id)
@@ -123,7 +123,7 @@ async def api_admin_get_orders(
     db: AsyncSession = Depends(get_db),
     current_user: UserModel = Depends(get_current_seller),
 ):
-    """Список заказов с опциональным фильтром по статусу (только seller)."""
+    """Список заказов с опциональным фильтром по статусу (только для продавца)."""
     admin_service = AdminService(db)
     return await admin_service.get_orders_for_admin(status_filter)
 
@@ -135,7 +135,7 @@ async def api_admin_update_order_status(
     db: AsyncSession = Depends(get_db),
     current_user: UserModel = Depends(get_current_seller),
 ):
-    """Обновить статус заказа (только seller)."""
+    """Обновить статус заказа (только для продавца)."""
     admin_service = AdminService(db)
     try:
         await admin_service.order_status_admin(order_id, status)
@@ -153,7 +153,7 @@ async def api_admin_delete_order(
     db: AsyncSession = Depends(get_db),
     current_user: UserModel = Depends(get_current_seller),
 ):
-    """Удалить заказ и вернуть товары на склад (только seller)."""
+    """Удалить заказ и вернуть товары на склад (только для продавца)."""
     admin_service = AdminService(db)
     try:
         await admin_service.remove_order_admin(order_id)
@@ -194,7 +194,7 @@ async def api_admin_create_product(
     db: AsyncSession = Depends(get_db),
     current_user: UserModel = Depends(get_current_seller),
 ):
-    """Создать товар (только seller). URL должен быть уникален."""
+    """Создать товар (только для продавца). URL должен быть уникален."""
     admin_service = AdminService(db)
     data = product.model_copy(update={"seller_id": current_user.id})
     try:
@@ -211,7 +211,7 @@ async def api_admin_update_product(
     db: AsyncSession = Depends(get_db),
     current_user: UserModel = Depends(get_current_seller),
 ):
-    """Обновить товар (только seller)."""
+    """Обновить товар (только для продавца)."""
     admin_service = AdminService(db)
     try:
         await admin_service.update_product_admin(
@@ -239,7 +239,7 @@ async def api_admin_delete_product(
     db: AsyncSession = Depends(get_db),
     current_user: UserModel = Depends(get_current_seller),
 ):
-    """Удалить товар (только seller)."""
+    """Удалить товар (только для продавца)."""
     admin_service = AdminService(db)
     try:
         msg = await admin_service.remove_product_admin(product_id)

@@ -23,7 +23,7 @@ cart_router = APIRouter(prefix="/api/v2", tags=["API v2 Cart"])
 
 
 def _cart_to_api(cart_items: list, total: float, user_id: int) -> CartApi:
-    """Собрать CartApi из списка позиций и общей суммы."""
+    """Собрать ответ корзины из списка позиций и общей суммы."""
     return CartApi(
         user_id=user_id,
         items=[

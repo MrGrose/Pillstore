@@ -35,7 +35,7 @@ product_router = APIRouter(prefix="/api/v2", tags=["API v2 Products"])
 
 
 def _product_to_schema(p) -> ProductSchema:
-    """ORM Product -> ProductSchema (image_url может быть None)."""
+    """Преобразование ORM Product в ProductSchema (image_url может быть пустым)."""
     return ProductSchema(
         id=p.id,
         name=p.name,
@@ -52,7 +52,7 @@ async def api_get_products_list(
     page_size: int = Query(20, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
 ):
-    """Список активных товаров с пагинацией (GET)."""
+    """Список активных товаров с пагинацией."""
     product_svc = ProductService(db)
     items, total = await product_svc.get_products_list(page=page, page_size=page_size)
     return ProductListResponse(
@@ -69,7 +69,7 @@ async def api_get_product(
     db: AsyncSession = Depends(get_db),
     current_user: UserModel | None = Depends(get_current_user_optional),
 ):
-    """Один товар по id (GET)."""
+    """Получить один товар по id."""
     product_svc = ProductService(db)
     try:
         product = await product_svc.get_product_detail(product_id, current_user)
@@ -91,7 +91,7 @@ async def api_get_product_stock(
     product_id: int,
     db: AsyncSession = Depends(get_db),
 ):
-    """Остаток и доступность товара по id (GET)."""
+    """Остаток и доступность товара по id."""
     product_svc = ProductService(db)
     product = await product_svc.crud.get_by_id(product_id)
     if not product:
@@ -114,7 +114,7 @@ async def api_update_product(
     image: UploadFile | None = File(None),
     db: AsyncSession = Depends(get_db),
 ):
-    """Обновить товар (PUT). Только seller."""
+    """Обновить товар (только для продавца)."""
     product_svc = ProductService(db)
     product_by_id = await product_svc.crud.get_by_id(product_id)
     if not product_by_id:
@@ -143,7 +143,7 @@ async def api_create_product(
     db: AsyncSession = Depends(get_db),
     current_user: UserModel = Depends(get_current_seller),
 ):
-    """Создать товар (POST). Только seller, URL должен быть уникален."""
+    """Создать товар (только для продавца, URL должен быть уникален)."""
     product_svc = ProductService(db)
     if product.url:
         product_by_url = await product_svc.crud.get_by_url(product.url)
@@ -164,7 +164,7 @@ async def api_delete_product(
     product_id: int,
     db: AsyncSession = Depends(get_db),
 ):
-    """Деактивировать товар (DELETE soft)."""
+    """Мягкое удаление товара (деактивация)."""
     product_svc = ProductService(db)
     product = await product_svc.api_inactive_product(product_id)
     if not product:
@@ -180,7 +180,7 @@ async def api_hard_delete_product(
     product_id: int,
     db: AsyncSession = Depends(get_db),
 ):
-    """Удалить товар из БД безвозвратно (DELETE hard)."""
+    """Жёсткое удаление товара из БД безвозвратно."""
     product_svc = ProductService(db)
     product = await product_svc.crud.get_by_id(product_id)
     if not product:
@@ -199,7 +199,7 @@ async def import_products(
     current_user: UserModel = Depends(get_current_user_import),
     bypass_auth: bool = Query(False),
 ):
-    """Импорт товаров из JSON (POST). Логика создания категорий/товаров в роутере."""
+    """Импорт товаров из JSON. Логика создания категорий и товаров в роутере."""
     if bypass_auth:
         result = await db.scalar(select(UserModel).where(UserModel.id == 1))
         if not result:
