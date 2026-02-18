@@ -1,11 +1,11 @@
-import aiohttp
-import aiofiles
-import uuid
 import re
-
-from pathlib import Path
+import uuid
 from mimetypes import guess_extension
-from fastapi import status, HTTPException, UploadFile
+from pathlib import Path
+
+import aiofiles
+import aiohttp
+from fastapi import HTTPException, UploadFile, status
 
 from app.models.products import Product
 
@@ -84,7 +84,11 @@ async def formatted_description(product: Product) -> dict:
         return {}
 
     cleaned_parts = {}
-    pattern_left = r"(^Описание.+?)(Рекомендации.+?)(Другие ингредиенты.+?|Ингредиенты.+?)(Предупреждения.+?)(Отказ от ответственности.+)"
+    pattern_left = (
+        r"(^Описание.+?)(Рекомендации.+?)"
+        r"(Другие ингредиенты.+?|Ингредиенты.+?)(Предупреждения.+?)"
+        r"(Отказ от ответственности.+)"
+    )
     pattern_right = r"\s+(?=[А-Я])"
     text_left = re.search(
         pattern_left, product.description_left, re.MULTILINE | re.DOTALL
@@ -101,7 +105,7 @@ async def formatted_description(product: Product) -> dict:
         for i in range(1, 6):
             group_text = text_left.group(i)
             section_name = section_names[i - 1]
-            content_left = group_text[len(section_name):].strip()
+            content_left = group_text[len(section_name) :].strip()  # noqa: E203
             cleaned_parts[section_name] = [content_left]
 
     if text_right:
