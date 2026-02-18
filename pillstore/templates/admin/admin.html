@@ -181,7 +181,7 @@
                                         {% for product in products %}
                                         <tr>
                                             <td>{{ product.id }}</td>
-                                            <td><img src="{{ product.image_url or '/static/no-image.jpg' }}" width="50" class="rounded"></td>
+                                            <td><img src="{{ product.image_url or '/static/no-image.png' }}" width="50" class="rounded"></td>
                                             <td>{{ product.name }}</td>
                                             <td>{{ product.stock }}</td>
                                             <td>{{ "%.2f"|format(product.price) }}</td>
@@ -242,7 +242,7 @@
                                         {% for product_not_active in products_not_active %}
                                         <tr>
                                             <td>{{ product_not_active.id }}</td>
-                                            <td><img src="{{ product_not_active.image_url or '/static/no-image.jpg' }}" width="50" class="rounded"></td>
+                                            <td><img src="{{ product_not_active.image_url or '/static/no-image.png' }}" width="50" class="rounded"></td>
                                             <td>{{ product_not_active.name }}</td>
                                             <td>{{ product_not_active.stock }}</td>
                                             <td>{{ "%.2f"|format(product_not_active.price) }}</td>
