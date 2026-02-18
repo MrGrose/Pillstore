@@ -3,37 +3,11 @@
 {% block title %}Панель Администратора - PillStore{% endblock %}
 
 {% block content %}
-
-{% if flash_message and flash_message.text %}
-<div class="alert alert-success alert-dismissible fade show position-fixed animate__animated animate__fadeInRight" 
-     style="top: 20px; right: 20px; z-index: 9999; animation: slideOut 5s forwards;" 
-     role="alert">
-    {{ flash_message.text }}
-    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-</div>
-{% endif %}
+{% include "components/_flash.html" %}
 <div class="container-fluid py-4">
     <div class="row">
         <div class="col-md-3">
-            <div class="card sticky-top" style="top: 100px;">
-                <div class="list-group list-group-flush">
-                    <a href="/admin?tab=dashboard" class="list-group-item list-group-item-action {{ 'active' if tab == 'dashboard' else '' }}">
-                        <i class="fas fa-chart-bar me-2"></i>Дашборд
-                    </a>
-                    <a href="/admin?tab=products" class="list-group-item list-group-item-action {{ 'active' if tab == 'products' else '' }}">
-                        <i class="fas fa-box me-2"></i>Товары
-                    </a>
-                    <a href="/admin?tab=orders" class="list-group-item list-group-item-action {{ 'active' if tab == 'orders' else '' }}">
-                        <i class="fas fa-shopping-bag me-2"></i>Заказы
-                    </a>
-                    <a href="/admin?tab=users" class="list-group-item list-group-item-action {{ 'active' if tab == 'users' else '' }}">
-                        <i class="fas fa-users me-2"></i>Пользователи
-                    </a>
-                    <a href="/profile" class="list-group-item list-group-item-action">
-                        <i class="fas fa-user-circle me-2"></i>Личный кабинет
-                    </a>
-                </div>
-            </div>
+            {% include "admin/_sidebar.html" %}
         </div>
         <div class="col-md-9">
             <div class="card shadow">
@@ -41,39 +15,12 @@
                     <div class="tab-content">
                         <div class="tab-pane fade {{ 'show active' if tab == 'dashboard' else '' }}" id="dashboard">
                             <h4>Статистика</h4>
+                            {% set revenue_fmt = "%.2f"|format(stats.total_revenue) %}
                             <div class="row mb-4">
-                                <div class="col-md-3">
-                                    <div class="card text-white bg-primary">
-                                        <div class="card-body text-center">
-                                            <h1>{{ stats.total_orders }}</h1>
-                                            <p class="mb-0">Заказов</p>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="col-md-3">
-                                    <div class="card text-white bg-success">
-                                        <div class="card-body text-center">
-                                            <h1>{{ "%.2f"|format(stats.total_revenue) }}</h1>
-                                            <p class="mb-0">Выручка</p>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="col-md-3">
-                                    <div class="card text-white bg-info">
-                                        <div class="card-body text-center">
-                                            <h1>{{ stats.total_products }}</h1>
-                                            <p class="mb-0">Товаров</p>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="col-md-3">
-                                    <div class="card text-white bg-warning">
-                                        <div class="card-body text-center">
-                                            <h1>{{ stats.pending_orders }}</h1>
-                                            <p class="mb-0">Ожидают</p>
-                                        </div>
-                                    </div>
-                                </div>
+                                {% with value=stats.total_orders, label="Заказов", bg_class="bg-primary" %}{% include "components/_stat_card.html" %}{% endwith %}
+                                {% with value=revenue_fmt, label="Выручка", bg_class="bg-success" %}{% include "components/_stat_card.html" %}{% endwith %}
+                                {% with value=stats.total_products, label="Товаров", bg_class="bg-info" %}{% include "components/_stat_card.html" %}{% endwith %}
+                                {% with value=stats.pending_orders, label="Ожидают", bg_class="bg-warning" %}{% include "components/_stat_card.html" %}{% endwith %}
                             </div>
                         </div>
                         <div class="tab-pane fade {{ 'show active' if tab == 'products' else '' }}" id="products">

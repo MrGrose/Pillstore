@@ -1,6 +1,7 @@
 from datetime import datetime
 from decimal import Decimal
 
+from app.core.admin_redirect import redirect_admin
 from app.core.config import templates
 from app.core.deps import get_db
 from app.core.security import get_current_seller
@@ -79,10 +80,12 @@ async def update_order_status(
 ):
     admin_svc = AdminService(db)
     await admin_svc.order_status_admin(order_id, new_status)
-    url = f"/admin?tab={tab}&message=Статус заказа {order_id} изменен на {new_status}&message_type=success"
-    if status_filter:
-        url += f"&status_filter={status_filter}"
-    return RedirectResponse(url, status_code=status.HTTP_303_SEE_OTHER)
+    return redirect_admin(
+        tab,
+        message=f"Статус заказа {order_id} изменен на {new_status}",
+        message_type="success",
+        status_filter=status_filter,
+    )
 
 
 @router.post("/orders/{order_id}/delete", response_class=HTMLResponse)
@@ -95,10 +98,12 @@ async def delete_order(
 ):
     admin_svc = AdminService(db)
     await admin_svc.remove_order_admin(order_id)
-    url = f"/admin?tab={tab}&message=Заказ {order_id} удален, товары возвращены&message_type=success"
-    if status_filter:
-        url += f"&status_filter={status_filter}"
-    return RedirectResponse(url, status_code=status.HTTP_303_SEE_OTHER)
+    return redirect_admin(
+        tab,
+        message=f"Заказ {order_id} удален, товары возвращены",
+        message_type="success",
+        status_filter=status_filter,
+    )
 
 
 @router.post("/products/{product_id}/delete")
@@ -109,11 +114,8 @@ async def delete_product(
     current_user: User = Depends(get_current_seller),
 ):
     admin_svc = AdminService(db)
-    message = await admin_svc.remove_product_admin(product_id)
-    return RedirectResponse(
-        f"/admin?tab={tab}&message={message.replace(' ', '+')}&message_type=success",
-        status_code=303,
-    )
+    msg = await admin_svc.remove_product_admin(product_id)
+    return redirect_admin(tab, message=msg, message_type="success")
 
 
 @router.get("/products/{product_id}/edit", response_class=HTMLResponse)
@@ -121,6 +123,8 @@ async def edit_product_form(
     request: Request,
     product_id: int,
     tab: str = Query("products"),
+    message: str = Query(None),
+    message_type: str = Query("info"),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_seller),
 ):
@@ -129,10 +133,12 @@ async def edit_product_form(
     product = await admin_svc.product_crud.get_by_id_with_categories(product_id)
     categories = await category_svc.get_all_categories()
     batches = await admin_svc.get_batches_for_product(product_id)
+    flash_message = {"text": message, "type": message_type} if message else None
     context = {
         "request": request,
         "product": product,
         "tab": tab,
+        "flash_message": flash_message,
         "action_url": f"/admin/products/{product_id}",
         "categories": categories,
         "batches": batches,
@@ -185,13 +191,17 @@ async def delete_product_batch(
     try:
         await admin_svc.delete_batch_admin(product_id=product_id, batch_id=batch_id)
     except Exception as e:
-        return RedirectResponse(
-            f"/admin/products/{product_id}/edit?tab={tab}&message={e!s}&message_type=error",
-            status_code=303,
+        return redirect_admin(
+            tab,
+            message=str(e),
+            message_type="error",
+            path=f"/admin/products/{product_id}/edit",
         )
-    return RedirectResponse(
-        f"/admin/products/{product_id}/edit?tab={tab}&message=Партия+удалена&message_type=success",
-        status_code=303,
+    return redirect_admin(
+        tab,
+        message="Партия удалена",
+        message_type="success",
+        path=f"/admin/products/{product_id}/edit",
     )
 
 
@@ -234,10 +244,7 @@ async def admin_product_update(
         product_id, data, category_ids, image
     )
     await db.commit()
-    return RedirectResponse(
-        f"/admin?tab={tab}&message={msg.replace(' ', '+')}&message_type={msg_type}",
-        status_code=303,
-    )
+    return redirect_admin(tab, message=msg, message_type=msg_type)
 
 
 @router.post("/products/{product_id}/batches", response_class=HTMLResponse)
@@ -257,13 +264,17 @@ async def add_product_batch(
             expiry_date=expiry_date or None,
         )
     except Exception as e:
-        return RedirectResponse(
-            f"/admin/products/{product_id}/edit?tab={tab}&message={e!s}&message_type=error",
-            status_code=303,
+        return redirect_admin(
+            tab,
+            message=str(e),
+            message_type="error",
+            path=f"/admin/products/{product_id}/edit",
         )
-    return RedirectResponse(
-        f"/admin/products/{product_id}/edit?tab={tab}&message=Партия+добавлена&message_type=success",
-        status_code=303,
+    return redirect_admin(
+        tab,
+        message="Партия добавлена",
+        message_type="success",
+        path=f"/admin/products/{product_id}/edit",
     )
 
 
@@ -297,10 +308,7 @@ async def admin_product_create(
     )
     admin_svc = AdminService(db)
     msg, _product = await admin_svc.create_product_admin(data, image)
-    return RedirectResponse(
-        f"/admin?tab={tab}&message={msg.replace(' ', '+')}&message_type=success",
-        status_code=303,
-    )
+    return redirect_admin(tab, message=msg, message_type="success")
 
 
 @router.get("/users/new", response_class=HTMLResponse)
@@ -335,11 +343,7 @@ async def create_user(
     if isinstance(user, tuple):
         error_url, status_code = user
         return RedirectResponse(error_url, status_code=status_code)
-    msg = f"Пользователь {user} создан"
-    return RedirectResponse(
-        f"/admin?tab={tab}&message={msg.replace(' ', '+')}&message_type=success",
-        status_code=303,
-    )
+    return redirect_admin(tab, message=f"Пользователь {user} создан", message_type="success")
 
 
 @router.get("/users/{user_id}/edit", response_class=HTMLResponse)
@@ -385,11 +389,7 @@ async def update_user(
     if isinstance(user, tuple):
         error_url, status_code = user
         return RedirectResponse(error_url, status_code=status_code)
-    msg = f"Пользователь {user} обновлен"
-    return RedirectResponse(
-        f"/admin?tab={tab}&message={msg.replace(' ', '+')}&message_type=success",
-        status_code=303,
-    )
+    return redirect_admin(tab, message=f"Пользователь {user} обновлен", message_type="success")
 
 
 @router.post("/users/{user_id}/delete", response_class=HTMLResponse)
@@ -404,7 +404,4 @@ async def delete_user(
     if isinstance(result, tuple):
         error_url, status_code = result
         return RedirectResponse(error_url, status_code=status_code)
-    return RedirectResponse(
-        f"/admin?tab={tab}&message={result.replace(' ', '+')}&message_type=success",
-        status_code=303,
-    )
+    return redirect_admin(tab, message=result, message_type="success")
