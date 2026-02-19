@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+
+{% block title %}Оформление заказа - PillStore{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <h2 class="mb-4">Оформление заказа</h2>
+    {% if flash_error %}
+    <div class="alert alert-danger">{{ flash_error }}</div>
+    {% endif %}
+    {% if cart_items %}
+    <div class="row">
+        <div class="col-lg-8 overflow-hidden">
+            <div class="card mb-4 overflow-hidden">
+                <div class="card-header">Состав заказа</div>
+                <div class="card-body p-0">
+                    {% for item in cart_items %}
+                    <div class="d-flex align-items-start border-bottom p-3">
+                        <img src="{{ item.product.image_url or '/static/no-image.png' }}" 
+                             class="rounded me-3 flex-shrink-0" width="60" height="60" class="img-cover" alt="">
+                        <div class="flex-grow-1 me-2 product-name-wrap">
+                            <strong class="d-block product-name-wrap">{{ item.product.name }}</strong>
+                            <span class="text-muted small">{{ "%.0f"|format(item.product.price) }} ₽ × {{ item.quantity }}</span>
+                        </div>
+                        <strong class="flex-shrink-0">{{ "%.0f"|format(item.product.price * item.quantity) }} ₽</strong>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-4">
+            <div class="card">
+                <div class="card-header">Контакт и согласие</div>
+                <div class="card-body">
+                    <form method="post" action="/orders/checkout" id="checkout-form">
+                        <div class="mb-3">
+                            <label for="contact_phone" class="form-label">Телефон для связи *</label>
+                            <input type="tel" name="contact_phone" id="contact_phone" 
+                                   class="form-control" required 
+                                   placeholder="+7 (999) 123-45-67"
+                                   value="{{ contact_phone or '' }}">
+                            <div class="form-text">Укажите номер, по которому с вами можно связаться по заказу.</div>
+                        </div>
+                        <div class="mb-3 form-check">
+                            <input type="checkbox" class="form-check-input" name="personal_data_consent" 
+                                   id="personal_data_consent" value="1" required>
+                            <label class="form-check-label" for="personal_data_consent">
+                                Даю согласие на обработку персональных данных в соответствии с <a href="/privacy">политикой конфиденциальности</a> *
+                            </label>
+                        </div>
+                        <hr>
+                        <p class="mb-3"><strong>Итого: {{ "%.0f"|format(total) }} ₽</strong></p>
+                        <button type="submit" class="btn btn-success btn-lg w-100">Перейти к оплате</button>
+                        <a href="/orders/cart" class="btn btn-outline-secondary w-100 mt-2">Вернуться в корзину</a>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <div class="alert alert-info">Корзина пуста. <a href="/products">Перейти в каталог</a></div>
+    {% endif %}
+</div>
+{% endblock %}

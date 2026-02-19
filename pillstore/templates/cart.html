@@ -13,7 +13,7 @@
                     <div class="row g-0">
                         <div class="col-md-2">
                             <img src="{{ item.product.image_url or '/static/no-image.png' }}" 
-                                 class="img-fluid rounded-start" style="height: 120px; object-fit: cover;">
+                                 class="img-fluid rounded-start img-cover-120">
                         </div>
                         <div class="col-md-8">
                             <div class="card-body">
@@ -38,11 +38,9 @@
                 <div class="card">
                     <div class="card-body">
                         <h5>Итого: {{ "%.0f"|format(total) }} ₽</h5>
-                        <form action="/orders/checkout" method="post">
-                            <button type="submit" class="btn btn-success btn-lg w-100">
-                                Оформить заказ
-                            </button>
-                        </form>
+                        <a href="/orders/checkout" class="btn btn-success btn-lg w-100">
+                            Оформить заказ
+                        </a>
                     </div>
                 </div>
             </div>

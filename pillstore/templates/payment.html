@@ -1,45 +1,66 @@
 {% extends "base.html" %}
 
-{% block title %}Оплата заказа #{{ order.id }}{% endblock %}
+{% block title %}{% if order %}Оплата заказа #{{ order.id }}{% else %}Подтверждение заказа{% endif %}{% endblock %}
 
 {% block content %}
 <div class="container py-5">
     <div class="row justify-content-center">
         <div class="col-md-8">
+            {% if request.query_params.get('error') %}
+            <div class="alert alert-danger">Не удалось оформить заказ (возможно изменились остатки). Вернитесь в корзину.</div>
+            {% endif %}
             <div class="card mb-4">
                 <div class="card-body">
+                    {% if order %}
                     <h3 class="card-title">Оплата заказа № {{ order.id }}</h3>
-                    <p class="h4 text-success">Сумма к оплате: {{ order.total_amount }} ₽</p>
+                    {% else %}
+                    <h3 class="card-title">Подтверждение заказа</h3>
+                    <p class="text-muted small mb-0">Заказ будет создан только после нажатия «Подтвердить заказ». Корзина не очищается до подтверждения.</p>
+                    {% endif %}
+                    <p class="h4 text-success mt-2">Сумма к оплате: {{ order.total_amount if order else checkout['total'] }} ₽</p>
                 </div>
             </div>
             <div class="card mb-4">
-                <div class="card-header">
-                    Состав заказа
-                </div>
+                <div class="card-header">Состав заказа</div>
                 <ul class="list-group list-group-flush">
+                    {% if order %}
                     {% for item in order.items %}
                     <li class="list-group-item d-flex justify-content-between align-items-center">
                         <div>
                             <div class="fw-semibold">{{ item.product.name }}</div>
-                            <small class="text-muted">
-                                {{ item.quantity }} × {{ item.unit_price }} ₽
-                            </small>
+                            <small class="text-muted">{{ item.quantity }} × {{ item.unit_price }} ₽</small>
                         </div>
-                        <div class="fw-bold">
-                            {{ item.total_price }} ₽
-                        </div>
+                        <div class="fw-bold">{{ item.total_price }} ₽</div>
                     </li>
                     {% endfor %}
+                    {% else %}
+                    {% for item in checkout['items'] %}
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <div>
+                            <div class="fw-semibold">{{ item.name }}</div>
+                            <small class="text-muted">{{ item.quantity }} × {{ item.unit_price }} ₽</small>
+                        </div>
+                        <div class="fw-bold">{{ "%.2f"|format(item.quantity * item.unit_price) }} ₽</div>
+                    </li>
+                    {% endfor %}
+                    {% endif %}
                 </ul>
             </div>
             <div class="card">
                 <div class="card-body text-center p-4">
-                    <form method="post" action="/orders/{{ order.id }}/confirm" style="width: 100%;">
-                        <p class="text-muted small mb-4">Мы свяжемся в течение 45 минут</p>
+                    {% if order %}
+                    <form method="post" action="/orders/{{ order.id }}/confirm" class="payment-form-full">
+                    {% else %}
+                    <form method="post" action="/orders/confirm" class="payment-form-full">
+                    {% endif %}
+                        <p class="text-muted small mb-4">Мы свяжемся</p>
                         <button type="submit" class="btn btn-success btn-lg w-100">
-                            <i class="fas fa-shopping-cart me-2"></i>Подтвердить заказ
+                            <i class="fas fa-check me-2"></i>Подтвердить заказ
                         </button>
                     </form>
+                    {% if not order %}
+                    <a href="/orders/cart" class="btn btn-outline-secondary mt-2">Вернуться в корзину</a>
+                    {% endif %}
                 </div>
             </div>
         </div>
@@ -49,26 +70,17 @@
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-header border-0 bg-success text-white">
-                <h5 class="modal-title">
-                    <i class="fas fa-check-circle me-2"></i>Спасибо за заказ!
-                </h5>
+                <h5 class="modal-title"><i class="fas fa-check-circle me-2"></i>Спасибо за заказ!</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body text-center py-5">
-                <i class="fas fa-check-circle text-success" style="font-size: 4rem;"></i>
-                <h4 class="mt-3 mb-4">Заказ #{{ order.id }} принят!</h4>
-                <p class="lead text-muted mb-4">
-                    Мы свяжемся вами в течение 45 минут для подтверждения заказа
-                </p>
-                <p class="small text-muted mb-0">
-                    Номер заказа: <strong>#{{ order.id }}</strong><br>
-                    Сумма: <strong>{{ order.total_amount }} ₽</strong>
-                </p>
+                <i class="fas fa-check-circle text-success payment-icon-success"></i>
+                <h4 class="mt-3 mb-4">Заказ принят!</h4>
+                <p class="lead text-muted mb-4">Мы свяжемся с вами</p>
+                <p class="small text-muted mb-0" id="success-order-info"></p>
             </div>
             <div class="modal-footer border-0 justify-content-center">
-                <a href="/products" class="btn btn-success">
-                    <i class="fas fa-shopping-bag me-2"></i>Продолжить покупки
-                </a>
+                <a href="/products" class="btn btn-success"><i class="fas fa-shopping-bag me-2"></i>Продолжить покупки</a>
             </div>
         </div>
     </div>

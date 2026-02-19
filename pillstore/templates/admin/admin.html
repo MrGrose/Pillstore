@@ -14,13 +14,115 @@
                 <div class="card-body">
                     <div class="tab-content">
                         <div class="tab-pane fade {{ 'show active' if tab == 'dashboard' else '' }}" id="dashboard">
-                            <h4>Статистика</h4>
-                            {% set revenue_fmt = "%.2f"|format(stats.total_revenue) %}
-                            <div class="row mb-4">
-                                {% with value=stats.total_orders, label="Заказов", bg_class="bg-primary" %}{% include "components/_stat_card.html" %}{% endwith %}
-                                {% with value=revenue_fmt, label="Выручка", bg_class="bg-success" %}{% include "components/_stat_card.html" %}{% endwith %}
-                                {% with value=stats.total_products, label="Товаров", bg_class="bg-info" %}{% include "components/_stat_card.html" %}{% endwith %}
-                                {% with value=stats.pending_orders, label="Ожидают", bg_class="bg-warning" %}{% include "components/_stat_card.html" %}{% endwith %}
+                            <div class="card border shadow-sm mb-4">
+                                <div class="card-header bg-light"><h5 class="mb-0">Общая статистика</h5></div>
+                                <div class="card-body">
+                                    {% set revenue_fmt = "%.2f"|format(stats.total_revenue) %}
+                                    {% set cost_fmt = "%.2f"|format(stats.total_cost) %}
+                                    {% set margin_fmt = "%.2f"|format(stats.total_margin) %}
+                                    <div class="row">
+                                        {% with value=stats.total_orders, label="Заказов (всего)", bg_class="bg-primary" %}{% include "components/_stat_card.html" %}{% endwith %}
+                                        {% with value=revenue_fmt, label="Выручка (всего)", bg_class="bg-success" %}{% include "components/_stat_card.html" %}{% endwith %}
+                                        {% with value=cost_fmt, label="Себестоимость", bg_class="bg-secondary" %}{% include "components/_stat_card.html" %}{% endwith %}
+                                        {% with value=margin_fmt, label="Чистая прибыль", bg_class="bg-info" %}{% include "components/_stat_card.html" %}{% endwith %}
+                                        {% with value=stats.total_products, label="Товаров", bg_class="bg-primary" %}{% include "components/_stat_card.html" %}{% endwith %}
+                                        {% with value=stats.pending_orders, label="Ожидают оплаты", bg_class="bg-warning" %}{% include "components/_stat_card.html" %}{% endwith %}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="card border shadow-sm mb-4">
+                                <div class="card-header bg-light d-flex flex-wrap align-items-center gap-2">
+                                    <h5 class="mb-0">Продажи за период</h5>
+                                    <form method="get" action="/admin" id="dashboard-period-form" class="d-inline ms-auto">
+                                        <input type="hidden" name="tab" value="dashboard">
+                                        <select name="period" class="form-select form-select-sm d-inline-block w-auto" aria-label="Период" onchange="window.location.href='/admin?tab=dashboard&amp;period='+encodeURIComponent(this.value);">
+                                            <option value="1d" {{ 'selected' if period == '1d' else '' }}>1 день</option>
+                                            <option value="7d" {{ 'selected' if period == '7d' else '' }}>7 дней</option>
+                                            <option value="30d" {{ 'selected' if period == '30d' else '' }}>30 дней</option>
+                                            <option value="6m" {{ 'selected' if period == '6m' else '' }}>6 месяцев</option>
+                                            <option value="1y" {{ 'selected' if period == '1y' else '' }}>1 год</option>
+                                        </select>
+                                    </form>
+                                </div>
+                                <div class="card-body">
+                                    <p class="text-muted small mb-3">Заказы: Оплачено / В пути / Доставлено. Период: с {{ dashboard.date_from.strftime('%d.%m.%Y') }} по {{ dashboard.date_to.strftime('%d.%m.%Y') }}</p>
+                                    <h6 class="border-bottom pb-2 mb-2">Таблица продаж</h6>
+                                    <div class="table-responsive mb-3">
+                                        <table class="table table-sm table-hover">
+                                            <thead><tr><th>Товар</th><th>Кол-во</th><th>Выручка, ₽</th><th>Маржа, ₽</th></tr></thead>
+                                            <tbody>
+                                                {% for r in dashboard.sales_table %}
+                                                <tr><td>{{ r.product_name }}</td><td>{{ r.quantity }}</td><td>{{ "%.2f"|format(r.revenue) }}</td><td>{{ "%.2f"|format(r.margin) }}</td></tr>
+                                                {% endfor %}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                    <p class="fw-bold mb-0">Итого за период: выручка {{ "%.2f"|format(dashboard.sales_total_revenue) }} ₽, маржа {{ "%.2f"|format(dashboard.sales_total_margin) }} ₽</p>
+                                </div>
+                            </div>
+
+                            <div class="row">
+                                <div class="col-md-6 mb-4">
+                                    <div class="card border shadow-sm h-100">
+                                        <div class="card-header bg-light"><h6 class="mb-0">По категории</h6></div>
+                                        <div class="card-body p-0">
+                                            <table class="table table-sm mb-0"><thead><tr><th>Категория</th><th>Кол-во</th><th>Выручка, ₽</th></tr></thead><tbody>
+                                                {% for r in dashboard.sales_by_category %}<tr><td>{{ r.name }}</td><td>{{ r.quantity }}</td><td>{{ "%.2f"|format(r.revenue) }}</td></tr>{% endfor %}
+                                            </tbody></table>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6 mb-4">
+                                    <div class="card border shadow-sm h-100">
+                                        <div class="card-header bg-light"><h6 class="mb-0">По бренду</h6></div>
+                                        <div class="card-body p-0">
+                                            <table class="table table-sm mb-0"><thead><tr><th>Бренд</th><th>Кол-во</th><th>Выручка, ₽</th></tr></thead><tbody>
+                                                {% for r in dashboard.sales_by_brand %}<tr><td>{{ r.name }}</td><td>{{ r.quantity }}</td><td>{{ "%.2f"|format(r.revenue) }}</td></tr>{% endfor %}
+                                            </tbody></table>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="row">
+                                <div class="col-md-6 mb-4">
+                                    <div class="card border shadow-sm h-100">
+                                        <div class="card-header bg-light"><h6 class="mb-0">Топ-5 товаров по продажам</h6></div>
+                                        <div class="card-body p-0">
+                                            <table class="table table-sm mb-0"><thead><tr><th>Товар</th><th>Кол-во</th><th>Выручка</th><th>Маржа</th></tr></thead><tbody>
+                                                {% for r in dashboard.top_5_products %}<tr><td>{{ r.product_name }}</td><td>{{ r.quantity }}</td><td>{{ "%.2f"|format(r.revenue) }}</td><td>{{ "%.2f"|format(r.margin) }}</td></tr>{% endfor %}
+                                            </tbody></table>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6 mb-4">
+                                    <div class="card border shadow-sm h-100">
+                                        <div class="card-header bg-light"><h6 class="mb-0">Топ-5 категорий по продажам</h6></div>
+                                        <div class="card-body p-0">
+                                            <table class="table table-sm mb-0"><thead><tr><th>Категория</th><th>Кол-во</th><th>Выручка</th></tr></thead><tbody>
+                                                {% for r in dashboard.top_5_categories %}<tr><td>{{ r.name }}</td><td>{{ r.quantity }}</td><td>{{ "%.2f"|format(r.revenue) }}</td></tr>{% endfor %}
+                                            </tbody></table>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="card border shadow-sm mb-4">
+                                <div class="card-header bg-light"><h6 class="mb-0">Остатки: партии с истекающим сроком (&lt;30 дней)</h6></div>
+                                <div class="card-body p-0">
+                                    <table class="table table-sm mb-0"><thead><tr><th>Товар</th><th>Партия</th><th>Срок годности</th><th>Остаток</th></tr></thead><tbody>
+                                        {% for r in dashboard.batches_expiring_soon %}<tr><td>{{ r.product_name }}</td><td>#{{ r.batch_id }}</td><td>{{ r.expiry_date.strftime('%d.%m.%Y') }}</td><td>{{ r.quantity }}</td></tr>{% endfor %}
+                                    </tbody></table>
+                                    {% if not dashboard.batches_expiring_soon %}<p class="text-muted small p-3 mb-0">Нет партий с истекающим в течение 30 дней сроком.</p>{% endif %}
+                                </div>
+                            </div>
+
+                            <div class="card border shadow-sm mb-4">
+                                <div class="card-header bg-light"><h6 class="mb-0">График тренда: выручка по дням</h6></div>
+                                <div class="card-body">
+                                    <canvas id="dashboard-trend-chart" width="400" height="120"></canvas>
+                                </div>
                             </div>
                         </div>
                         <div class="tab-pane fade {{ 'show active' if tab == 'products' else '' }}" id="products">
@@ -41,7 +143,7 @@
                                         </button>
                                     </div>
                                 </div>
-                                <form method="get" action="/admin" class="d-flex gap-2 align-items-center justify-content-center" style="max-width: 600px; margin: 0 auto;">
+                                <form method="get" action="/admin" class="d-flex gap-2 align-items-center justify-content-center admin-form-search">
                                     <input type="hidden" name="tab" value="products">
                                     <input type="hidden" name="page_active" value="{{ pagination_active.page }}">
                                     <input type="hidden" name="page_size_active" value="{{ pagination_active.page_size }}">
@@ -102,8 +204,8 @@
                                         <div class="col-auto">
                                             Показать: 
                                             <select class="form-select form-select-sm d-inline-block w-auto" 
-                                                    style="width: auto;" 
-                                                    onchange="window.location.href=this.options[this.selectedIndex].dataset.url  + '#active'">
+                                                    class="admin-select-url"
+                                                    onchange="window.location.href=this.options[this.selectedIndex].dataset.url + '#active'">
                                                 {% for size, url in pagination_active.page_size_urls.items() %}
                                                 <option value="{{ size }}" 
                                                         data-url="{{ url }}" 
@@ -165,7 +267,7 @@
                                         <div class="col-auto">
                                             Показать: 
                                             <select class="form-select form-select-sm d-inline-block w-auto" 
-                                                    style="width: auto;" 
+                                                    class="admin-select-url"
                                                     onchange="window.location.href=this.options[this.selectedIndex].dataset.url + '#inactive'">
                                                 {% for size, url in pagination_inactive.page_size_urls.items() %}
                                                 <option value="{{ size }}" data-url="{{ url }}" {{ 'selected' if size == pagination_inactive.page_size else '' }}>
@@ -236,7 +338,7 @@
                                         <div class="col-md-6 text-end">
                                             <select class="form-select w-auto d-inline-block" 
                                                     onchange="window.location.href=`/admin/?tab=orders&status_filter=${this.value}`"
-                                                    style="width: auto;">
+                                                    class="admin-select-url">
                                                 <option value="all" {{ 'selected' if not status_filter or status_filter == 'all' else '' }}>Все статусы</option>
                                                 <option value="pending" {{ 'selected' if status_filter == 'pending' else '' }}>Ожидают оплаты</option>
                                                 <option value="paid" {{ 'selected' if status_filter == 'paid' else '' }}>Оплачено</option>
@@ -263,7 +365,7 @@
                                                 <form action="/admin/orders/{{ order.id }}/status" method="post" class="d-inline">
                                                     <input type="hidden" name="tab" value="orders">
                                                     <input type="hidden" name="status_filter" value="{{ status_filter or '' }}">
-                                                    <select name="new_status" class="form-select form-select-sm" onchange="this.form.submit()" style="width: 140px;">
+                                                    <select name="new_status" class="form-select form-select-sm admin-status-select" onchange="this.form.submit()">
                                                         <option value="pending" {{ 'selected' if order.status == 'pending' else '' }}>Ожидает оплаты</option>
                                                         <option value="paid" {{ 'selected' if order.status == 'paid' else '' }}>Оплачено</option>
                                                         <option value="transit" {{ 'selected' if order.status == 'transit' else '' }}>Транзит</option>
@@ -340,4 +442,9 @@
         </div>
     </div>
 </div>
+{% endblock %}
+{% block scripts %}
+    <script>window.__DASHBOARD_TREND__ = {{ dashboard.trend_json | safe }};</script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+    <script src="{{ url_for('static', path='/js/dashboard-chart.js') }}"></script>
 {% endblock %}

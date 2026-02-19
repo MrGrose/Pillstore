@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>{{ receipt_title }} #{{ order.id }}</title>
+    <link rel="stylesheet" href="{{ url_for('static', path='/css/receipt.css') }}">
+</head>
+<body>
+    <div class="receipt-no-print">
+        <a href="/orders/{{ order.id }}">← К заказу</a>
+        <button type="button" class="receipt-print-btn" id="receipt-print-btn">Печать</button>
+    </div>
+    <h1>{{ receipt_title }}</h1>
+    <div class="receipt-meta">
+        {% for label, value in receipt_meta %}
+        <p>{% if value %}{{ label }} {{ value }}{% else %}{{ label }}{% endif %}</p>
+        {% endfor %}
+    </div>
+    <table class="receipt-table">
+        <thead>
+            <tr>{% for h in receipt_headers %}<th>{{ h }}</th>{% endfor %}</tr>
+        </thead>
+        <tbody>
+            {% for row in receipt_rows %}
+            <tr>{% for cell in row %}<td>{{ cell }}</td>{% endfor %}</tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    <div class="receipt-sum">{{ receipt_total_label }}: {{ receipt_total }} ₽</div>
+    <div class="receipt-footer">{{ receipt_footer }}</div>
+    <script src="{{ url_for('static', path='/js/receipt.js') }}"></script>
+</body>
+</html>
