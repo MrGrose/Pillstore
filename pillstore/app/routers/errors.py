@@ -1,3 +1,5 @@
+from datetime import date
+
 from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import HTMLResponse
 
@@ -7,6 +9,23 @@ from app.models.users import User
 from app.services.cart import get_cart_count
 
 router = APIRouter()
+
+
+@router.get("/privacy", response_class=HTMLResponse)
+async def privacy_policy(
+    request: Request,
+    current_user: User | None = Depends(get_current_user_optional),
+    cart_count: int = Depends(get_cart_count),
+):
+    return templates.TemplateResponse(
+        "privacy.html",
+        {
+            "request": request,
+            "current_user": current_user,
+            "cart_count": cart_count,
+            "updated_at": date.today().strftime("%d.%m.%Y"),
+        },
+    )
 
 
 @router.get("/access-denied", response_class=HTMLResponse)
