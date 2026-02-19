@@ -37,6 +37,7 @@ python-json-logger = "^4.0.0"
 psycopg2-binary = "^2.9.11"
 cloudscraper = "^1.2.71"
 deep-translator = "1.11.4"
+itsdangerous = "^2.2.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^9.0.2"
