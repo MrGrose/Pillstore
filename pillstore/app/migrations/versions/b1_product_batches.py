@@ -1,11 +1,3 @@
-"""Партии товара (product_batches, batch_deductions).
-
-Revision ID: b1_product_batches
-Revises: a20e955a6095
-Create Date: 2026-02-18
-
-"""
-
 from typing import Sequence, Union
 
 from alembic import op

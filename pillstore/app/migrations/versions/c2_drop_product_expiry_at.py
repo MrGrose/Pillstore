@@ -1,11 +1,3 @@
-"""Удалить колонку expiry_at из products (срок годности только в партиях).
-
-Revision ID: c2_drop_expiry_at
-Revises: b1_product_batches
-Create Date: 2026-02-18
-
-"""
-
 from typing import Sequence, Union
 
 from alembic import op
@@ -19,7 +11,7 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    op.drop_column("products", "expiry_at", schema=None)
+    op.execute(sa.text("ALTER TABLE products DROP COLUMN IF EXISTS expiry_at"))
 
 
 def downgrade() -> None:
