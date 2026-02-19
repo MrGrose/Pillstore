@@ -64,7 +64,12 @@ class CrudOrder(CRUDBase):
         )
 
     async def add_or_update_item(
-        self, order: Order, product_id: int, quantity: int, product_price: Decimal
+        self,
+        order: Order,
+        product_id: int,
+        quantity: int,
+        product_price: Decimal,
+        unit_cost: Decimal | None = None,
     ) -> None:
         existing_item = next(
             (item for item in order.items if item.product_id == product_id), None
@@ -74,12 +79,15 @@ class CrudOrder(CRUDBase):
             existing_item.quantity += quantity
             existing_item.unit_price = product_price
             existing_item.total_price = existing_item.quantity * product_price
+            if unit_cost is not None:
+                existing_item.unit_cost = unit_cost
         else:
             item = OrderItem(
                 order_id=order.id,
                 product_id=product_id,
                 quantity=quantity,
                 unit_price=product_price,
+                unit_cost=unit_cost,
                 total_price=quantity * product_price,
             )
             self.session.add(item)
