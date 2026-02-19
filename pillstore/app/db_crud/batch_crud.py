@@ -76,13 +76,19 @@ class CrudBatch:
         if not product:
             raise ValueError(f"Product {product_id} не найден")
         total_available = sum(b.quantity for b in batches) if batches else (product.stock or 0)
+        stock_value = product.stock or 0
         if total_available < quantity:
+            if stock_value >= quantity:
+                product.stock = stock_value - quantity
+                for b in batches:
+                    b.quantity = 0
+                return []
             raise ValueError(
                 f"Недостаточно остатков для product_id={product_id}: "
                 f"нужно {quantity}, доступно {total_available}"
             )
         if not batches:
-            product.stock = (product.stock or 0) - quantity
+            product.stock = stock_value - quantity
             return []
         remaining = quantity
         deductions_created: list[tuple[int, int]] = []
