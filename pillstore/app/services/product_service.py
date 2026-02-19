@@ -1,34 +1,23 @@
 from decimal import Decimal
+
+from app.core.logger import logger
+from app.db_crud.cart_crud import CrudCart
+from app.db_crud.category_crud import CrudCategory
+from app.db_crud.products_crud import CrudProduct
+from app.exceptions.handlers import ProductNotFoundError
+from app.models.cart_items import CartItem
+from app.models.categories import Category
+from app.models.products import Product
+from app.models.users import User
+from app.schemas.category import CategoryTreeOut
+from app.schemas.product import (ProductCreate, ProductCreateAPI,
+                                 ProductPagination, ProductUpdateAPI)
+from app.utils.description_parser import formatted_description
+from app.utils.iherb_scraper import IHerbScraper
+from app.utils.utils import (remove_product_image, save_image_from_url,
+                             save_product_image)
 from fastapi import HTTPException, Request, UploadFile, status
 from sqlalchemy.ext.asyncio import AsyncSession
-
-from app.models.cart_items import CartItem
-from app.models.users import User
-from app.models.products import Product
-from app.models.categories import Category
-
-from app.db_crud.cart_crud import CrudCart
-from app.db_crud.products_crud import CrudProduct
-from app.db_crud.category_crud import CrudCategory
-
-from app.schemas.product import (
-    ProductCreate,
-    ProductCreateAPI,
-    ProductPagination,
-    ProductUpdateAPI,
-)
-from app.schemas.category import CategoryTreeOut
-
-from app.exceptions.handlers import ProductNotFoundError
-
-from app.utils.utils import (
-    formatted_description,
-    save_image_from_url,
-    remove_product_image,
-    save_product_image,
-)
-from app.core.logger import logger
-from app.utils.iherb_scraper import IHerbScraper
 
 
 class ProductService:

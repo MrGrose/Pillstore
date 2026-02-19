@@ -21,6 +21,7 @@ SECTION_HEADERS = (
     "Производитель",
 )
 SKIP_SECTIONS = {"Отказ от ответственности", "Производитель"}
+RIGHT_SECTION_TITLES = ("Пищевая ценность", "Информация о добавке", "Ингредиенты")
 
 
 def _strip_disclaimer(text: str) -> str:
