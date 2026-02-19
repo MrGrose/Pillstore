@@ -1,3 +1,4 @@
+import json
 from datetime import datetime
 from decimal import Decimal
 
@@ -11,6 +12,10 @@ from app.services.admin_service import AdminService
 from app.services.cart import get_cart_count
 from app.services.category_service import CategoryService
 from app.services.product_service import ProductService
+from app.utils.description_parser import (
+    RIGHT_SECTION_TITLES,
+    formatted_description,
+)
 from app.services.user_service import UserService
 from fastapi import (APIRouter, Depends, File, Form, HTTPException, Query,
                      Request, UploadFile, status)
@@ -27,6 +32,7 @@ async def admin_page(
     current_user: User = Depends(get_current_seller),
     cart_count: int = Depends(get_cart_count),
     tab: str = Query("dashboard"),
+    period: str = Query("30d"),
     message: str = Query(None),
     message_type: str = Query("info"),
     status_filter: str = Query(None),
@@ -47,12 +53,16 @@ async def admin_page(
     flash_message = {"text": message, "type": message_type} if message else None
     admin_svc = AdminService(db)
     dashboard_stats = await admin_svc.get_admin_page(status_filter)
+    dashboard_data = await admin_svc.get_dashboard_data(period)
+    dashboard_data["trend_json"] = json.dumps(dashboard_data["trend"])
 
     return templates.TemplateResponse(
         "/admin/admin.html",
         {
             "request": request,
             **dashboard_stats,
+            "dashboard": dashboard_data,
+            "period": period,
             "cart_count": cart_count,
             "current_user": current_user,
             "tab": tab,
@@ -133,6 +143,7 @@ async def edit_product_form(
     product = await admin_svc.product_crud.get_by_id_with_categories(product_id)
     categories = await category_svc.get_all_categories()
     batches = await admin_svc.get_batches_for_product(product_id)
+    product_description = await formatted_description(product) if product else {}
     flash_message = {"text": message, "type": message_type} if message else None
     context = {
         "request": request,
@@ -143,6 +154,8 @@ async def edit_product_form(
         "categories": categories,
         "batches": batches,
         "current_user": current_user,
+        "product_description": product_description,
+        "right_section_titles": RIGHT_SECTION_TITLES,
         "created_at_iso": (
             product.created_at.strftime("%Y-%m-%dT%H:%M")
             if product and product.created_at
@@ -175,6 +188,8 @@ async def new_product_form(
             "action_url": "/admin/products",
             "categories": categories,
             "current_user": current_user,
+            "product_description": {},
+            "right_section_titles": RIGHT_SECTION_TITLES,
         },
     )
 
@@ -205,8 +220,30 @@ async def delete_product_batch(
     )
 
 
+def _build_description_from_section_lists(
+    section_names: list[str], section_contents: list[str]
+) -> tuple[str, str]:
+    right_set = set(RIGHT_SECTION_TITLES)
+    left_sections = []
+    right_sections = []
+    for name, content in zip(section_names, section_contents):
+        name = (name or "").strip()
+        lines = [s.strip() for s in (content or "").strip().split("\n") if s.strip()]
+        if not name:
+            continue
+        sec = {"title": name, "content": lines if lines else [content.strip()]}
+        if name in right_set:
+            right_sections.append(sec)
+        else:
+            left_sections.append(sec)
+    left_json = json.dumps(left_sections, ensure_ascii=False) if left_sections else ""
+    right_json = json.dumps(right_sections, ensure_ascii=False) if right_sections else ""
+    return left_json, right_json
+
+
 @router.post("/products/{product_id}", response_class=HTMLResponse)
 async def admin_product_update(
+    request: Request,
     product_id: int,
     category_ids: list[int] = Form([]),
     tab: str = Form("products"),
@@ -214,6 +251,7 @@ async def admin_product_update(
     name_en: str = Form(""),
     brand: str = Form(None),
     price: float = Form(...),
+    cost: float = Form(0),
     stock: int = Form(0),
     url: str | None = Form(None),
     description_left: str = Form(None),
@@ -224,6 +262,14 @@ async def admin_product_update(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_seller),
 ):
+    form = await request.form()
+    sn = form.getlist("desc_section_name")
+    sc = form.getlist("desc_section_content")
+    if sn and sc and len(sn) == len(sc):
+        description_left, description_right = _build_description_from_section_lists(sn, sc)
+    else:
+        description_left = description_left or ""
+        description_right = description_right or ""
     parsed_created_at = datetime.fromisoformat(created_at) if created_at else None
     url_value = (url or "").strip() or None
     data = ProductUpdate(
@@ -231,12 +277,13 @@ async def admin_product_update(
         name_en=name_en,
         brand=brand or "",
         price=price,
+        cost=cost,
         stock=stock,
         url=url_value,
         is_active=is_active,
         category_ids=category_ids,
-        description_left=description_left or "",
-        description_right=description_right or "",
+        description_left=description_left,
+        description_right=description_right,
         created_at=parsed_created_at,
     )
     admin_svc = AdminService(db)
@@ -286,6 +333,7 @@ async def admin_product_create(
     name_en: str = Form(""),
     brand: str = Form(None),
     price: float = Form(...),
+    cost: float = Form(0),
     stock: int = Form(0),
     description_left: str = Form(None),
     description_right: str = Form(None),
@@ -299,6 +347,7 @@ async def admin_product_create(
         name_en=name_en,
         brand=brand,
         price=Decimal(price),
+        cost=Decimal(str(cost)),
         description_left=description_left,
         description_right=description_right,
         category_id=category_ids if category_ids else [],
