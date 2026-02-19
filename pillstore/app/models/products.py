@@ -51,6 +51,9 @@ class Product(Base):
         back_populates="product",
         cascade="all, delete-orphan",
     )
+    favorited_by: Mapped[list["UserFavorite"]] = relationship(  # noqa: F821
+        "UserFavorite", back_populates="product", cascade="all, delete-orphan"
+    )
 
     description_left: Mapped[str | None] = mapped_column(Text)
     description_right: Mapped[str | None] = mapped_column(Text)

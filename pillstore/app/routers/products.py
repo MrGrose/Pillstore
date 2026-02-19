@@ -7,6 +7,7 @@ from app.core.deps import get_db
 from app.core.security import get_current_user_optional
 from app.models.users import User
 from app.services.cart_service import CartService
+from app.services.favorites_service import FavoritesService
 from app.services.product_service import ProductService
 
 
@@ -30,6 +31,8 @@ async def products_page(
     )
     cart_count = await cart_svc.cart_count(current_user, pagination.items)
     flat_tree = await product_svc.get_flat_tree()
+    fav_svc = FavoritesService(db)
+    favorite_ids = list(await fav_svc.get_favorite_ids(current_user))
 
     return templates.TemplateResponse(
         "index.html",
@@ -41,6 +44,7 @@ async def products_page(
             "search": search_product,
             "flat_tree": flat_tree,
             "active_category_id": category_id,
+            "favorite_ids": favorite_ids,
         },
     )
 
@@ -56,6 +60,9 @@ async def product_detail(
     cart_svc = CartService(db)
     product = await product_svc.get_product_detail(product_id, current_user)
     cart_count = await cart_svc.cart_count(current_user, [])
+    fav_svc = FavoritesService(db)
+    favorite_ids = list(await fav_svc.get_favorite_ids(current_user))
+
     return templates.TemplateResponse(
         "product_detail.html",
         {
@@ -63,6 +70,7 @@ async def product_detail(
             "product": product,
             "current_user": current_user,
             "cart_count": cart_count,
+            "favorite_ids": favorite_ids,
         },
     )
 

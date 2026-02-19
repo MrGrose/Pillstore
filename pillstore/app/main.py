@@ -11,6 +11,7 @@ from app.api.v2.admin import admin_router
 from app.api.v2.auth import auth_router
 from app.api.v2.cart import cart_router
 from app.api.v2.categories import categories_router
+from app.api.v2.favorites import favorites_router
 from app.api.v2.orders import orders_router
 from app.api.v2.products import product_router
 from app.api.v2.profile import profile_router
@@ -92,6 +93,7 @@ app.include_router(product_router)
 app.include_router(categories_router)
 app.include_router(auth_router)
 app.include_router(cart_router)
+app.include_router(favorites_router)
 app.include_router(orders_router)
 app.include_router(profile_router)
 app.include_router(admin_router)

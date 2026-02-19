@@ -3,11 +3,18 @@
 {% block title %}{{ product.name }} - PillStore{% endblock %}
 
 {% block content %}
-<a href="/products" class="btn btn-secondary mb-3">
+<a href="/products" class="btn btn-secondary mb-3" id="back-link"
+   onclick="event.preventDefault(); (window.history.length > 1) ? history.back() : (location.href='/products');">
     <i class="fas fa-arrow-left"></i> Назад
 </a>
-<div class="row">
-    <div class="col-md-6">
+<div class="row" id="product-detail-favorites" data-favorite-ids="{{ favorite_ids | default([]) | join(',') }}" data-user-logged-in="{{ '1' if current_user else '0' }}">
+    <div class="col-md-6 position-relative">
+        <button type="button" class="btn-favorite position-absolute top-0 end-0 m-2 p-2 border-0 bg-transparent"
+                data-product-id="{{ product.id }}"
+                aria-label="Избранное"
+                title="Избранное">
+            <i class="fas fa-heart fa-lg {{ 'text-danger' if product.id in (favorite_ids or []) else 'text-muted' }}"></i>
+        </button>
         <img src="{{ product.image_url or 'https://via.placeholder.com/400x400/eee?text=Фото' }}" 
              class="img-fluid rounded shadow-lg" alt="{{ product.brand }}, {{ product.name }}">
     </div>
@@ -101,4 +108,5 @@
 {% endblock %}
 {% block scripts %}
    <script src="{{ url_for('static', path='/js/count_cart.js') }}"></script>
+   <script src="{{ url_for('static', path='/js/favorites.js') }}"></script>
 {% endblock %}

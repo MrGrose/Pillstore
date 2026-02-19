@@ -25,3 +25,6 @@ class User(Base):
     orders: Mapped[list["Order"]] = relationship(  # noqa: F821
         "Order", back_populates="user", cascade="all, delete-orphan"
     )
+    favorites: Mapped[list["UserFavorite"]] = relationship(  # noqa: F821
+        "UserFavorite", back_populates="user", cascade="all, delete-orphan"
+    )

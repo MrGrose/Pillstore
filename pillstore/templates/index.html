@@ -104,10 +104,18 @@
                 </div>
             </div>
         </div>
-        <div class="row row-cols-1 row-cols-md-3 row-cols-lg-4 g-4">
+        <div class="row row-cols-1 row-cols-md-3 row-cols-lg-4 g-4" id="products-grid"
+             data-favorite-ids="{{ favorite_ids | default([]) | join(',') }}"
+             data-user-logged-in="{{ '1' if current_user else '0' }}">
             {% for product in pagination.items  %}
                 <div class="col">
-                    <div class="card h-100 shadow-sm d-flex flex-column card-product">
+                    <div class="card h-100 shadow-sm d-flex flex-column card-product position-relative">
+                        <button type="button" class="btn-favorite position-absolute top-0 end-0 m-2 p-1 border-0 bg-transparent"
+                                data-product-id="{{ product.id }}"
+                                aria-label="Избранное"
+                                title="Избранное">
+                            <i class="fas fa-heart {{ 'text-danger' if product.id in (favorite_ids or []) else 'text-muted' }}"></i>
+                        </button>
                         <a href="{{ request.url_for('product_detail', product_id=product.id) }}" class="text-decoration-none">
                             <img src="{{ product.image_url or 'https://via.placeholder.com/250x250/eee/999?text=' + product.name }}" 
                                 class="card-img-top flex-shrink-0 img-cover-300" alt="{{ product.brand or '' }}, {{ product.name }}">
@@ -147,4 +155,5 @@
 {% endblock %}
 {% block scripts %}
     <script src="{{ url_for('static', path='/js/count_cart.js') }}"></script>
+    <script src="{{ url_for('static', path='/js/favorites.js') }}"></script>
 {% endblock %}
