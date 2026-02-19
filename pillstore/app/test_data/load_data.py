@@ -21,6 +21,8 @@ SEED_BATCHES = [
     {"quantity": 3, "expiry_date": "2027-06-01"},
 ]
 
+SEED_COST_RATIO = 0.5
+
 
 async def seed_admin_and_products(db: AsyncSession):
     crud_user = CrudUser(db, UserModel)
@@ -51,6 +53,7 @@ async def seed_admin_and_products(db: AsyncSession):
             existing = await batch_crud.get_batches_by_product(product.id)
             if existing:
                 continue
+            product.cost = float(product.price) * SEED_COST_RATIO
             product.stock = 0
             await db.flush()
             for batch in SEED_BATCHES:
