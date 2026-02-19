@@ -17,6 +17,7 @@ from app.models.orders import Order
 from app.models.products import Product
 from app.models.users import User
 from app.schemas.product import ProductCreate, ProductUpdate
+from app.core.config import settings
 from app.utils.utils import remove_product_image, save_product_image
 
 
@@ -129,6 +130,12 @@ class AdminService:
 
     async def get_stats(self) -> dict:
         return await self.admin_crud.dashboard_stats()
+
+    async def get_product_ids_expiring_soon(
+        self, within_days: int | None = None
+    ) -> set[int]:
+        days = within_days if within_days is not None else settings.EXPIRY_WARNING_DAYS
+        return await self.batch_crud.get_product_ids_expiring_soon(days)
 
     async def get_dashboard_data(self, period: str = "30d") -> dict:
         date_from, date_to = _period_to_dates(period)

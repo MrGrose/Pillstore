@@ -23,6 +23,7 @@ class Settings(BaseSettings):
     SECRET_KEY: str = "dev-secret-change-me"
     ALGORITHM: str = "HS256"
     PAGINATION_SIZES: list[int] = [10, 20, 50, 100]
+    EXPIRY_WARNING_DAYS: int = 90
     MAX_AGE: int = 86400
     SESSION_MAX_AGE: int = 86400
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440

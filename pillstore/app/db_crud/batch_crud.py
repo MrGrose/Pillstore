@@ -1,9 +1,10 @@
-from sqlalchemy import func, select
-from sqlalchemy.orm import selectinload
+from datetime import date, timedelta
 
 from app.models.batches import BatchDeduction, ProductBatch
 from app.models.orders import OrderItem
 from app.models.products import Product
+from sqlalchemy import func, select
+from sqlalchemy.orm import selectinload
 
 
 class CrudBatch:
@@ -25,6 +26,24 @@ class CrudBatch:
             )
         result = await self.session.scalars(stmt)
         return list(result.all())
+
+    async def get_product_ids_expiring_soon(
+        self, within_days: int = 90
+    ) -> set[int]:
+        today = date.today()
+        end = today + timedelta(days=within_days)
+        stmt = (
+            select(ProductBatch.product_id)
+            .where(
+                ProductBatch.expiry_date.isnot(None),
+                ProductBatch.expiry_date >= today,
+                ProductBatch.expiry_date <= end,
+                ProductBatch.quantity > 0,
+            )
+            .distinct()
+        )
+        result = await self.session.scalars(stmt)
+        return set(result.all())
 
     async def get_total_stock_from_batches(self, product_id: int) -> int:
         stmt = select(func.coalesce(func.sum(ProductBatch.quantity), 0)).where(

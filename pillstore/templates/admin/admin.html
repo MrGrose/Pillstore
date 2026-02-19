@@ -220,6 +220,9 @@
                                         </div>
                                     </div>
                                 </div>
+                                {% if product_ids_expiry_soon %}
+                                <p class="text-muted small mb-1"><span class="bg-warning bg-opacity-25 px-1 rounded">Желтым</span> — остаток срока годности партии менее {{ expiry_warning_days }} дней.</p>
+                                {% endif %}
                                 <table class="table table-hover">
                                     <thead class="table-dark">
                                         <tr>
@@ -228,7 +231,7 @@
                                     </thead>
                                     <tbody>
                                         {% for product in products %}
-                                        <tr>
+                                        <tr class="{{ 'table-warning' if product.id in product_ids_expiry_soon else '' }}">
                                             <td>{{ product.id }}</td>
                                             <td><img src="{{ product.image_url or '/static/no-image.png' }}" width="50" class="rounded"></td>
                                             <td>{{ product.name }}</td>
@@ -289,7 +292,7 @@
                                     </thead>
                                     <tbody>
                                         {% for product_not_active in products_not_active %}
-                                        <tr>
+                                        <tr class="{{ 'table-warning' if product_not_active.id in product_ids_expiry_soon else '' }}">
                                             <td>{{ product_not_active.id }}</td>
                                             <td><img src="{{ product_not_active.image_url or '/static/no-image.png' }}" width="50" class="rounded"></td>
                                             <td>{{ product_not_active.name }}</td>

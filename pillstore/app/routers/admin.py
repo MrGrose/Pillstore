@@ -3,7 +3,7 @@ from datetime import datetime
 from decimal import Decimal
 
 from app.core.admin_redirect import redirect_admin
-from app.core.config import templates
+from app.core.config import settings, templates
 from app.core.deps import get_db
 from app.core.security import get_current_seller
 from app.models.users import User
@@ -64,6 +64,7 @@ async def admin_page(
     dashboard_stats = await admin_svc.get_admin_page(status_filter)
     dashboard_data = await admin_svc.get_dashboard_data(period)
     dashboard_data["trend_json"] = json.dumps(dashboard_data["trend"])
+    product_ids_expiry_soon = await admin_svc.get_product_ids_expiring_soon()
 
     return templates.TemplateResponse(
         "/admin/admin.html",
@@ -84,6 +85,8 @@ async def admin_page(
             "search": search_product,
             "active_category_id": category_id,
             "pagination": pagination_active,
+            "product_ids_expiry_soon": product_ids_expiry_soon,
+            "expiry_warning_days": settings.EXPIRY_WARNING_DAYS,
         },
     )
 
