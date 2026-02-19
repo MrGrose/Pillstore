@@ -1,4 +1,3 @@
-import re
 import uuid
 from mimetypes import guess_extension
 from pathlib import Path
@@ -6,9 +5,6 @@ from pathlib import Path
 import aiofiles
 import aiohttp
 from fastapi import HTTPException, UploadFile, status
-
-from app.models.products import Product
-
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 MEDIA_ROOT = BASE_DIR / "media" / "products"
@@ -77,44 +73,3 @@ async def save_image_from_url(image_url: str) -> str | None:
         return f"/media/products/{file_name}"
     except Exception:
         return None
-
-
-async def formatted_description(product: Product) -> dict:
-    if not (product.description_left and product.description_right):
-        return {}
-
-    cleaned_parts = {}
-    pattern_left = (
-        r"(^Описание.+?)(Рекомендации.+?)"
-        r"(Другие ингредиенты.+?|Ингредиенты.+?)(Предупреждения.+?)"
-        r"(Отказ от ответственности.+)"
-    )
-    pattern_right = r"\s+(?=[А-Я])"
-    text_left = re.search(
-        pattern_left, product.description_left, re.MULTILINE | re.DOTALL
-    )
-    text_right = product.description_right.replace("‡", "").replace("**", "")
-    if text_left:
-        section_names = [
-            "Описание",
-            "Рекомендации по применению",
-            "Другие ингредиенты",
-            "Предупреждения",
-            "Отказ от ответственности",
-        ]
-        for i in range(1, 6):
-            group_text = text_left.group(i)
-            section_name = section_names[i - 1]
-            content_left = group_text[len(section_name) :].strip()  # noqa: E203
-            cleaned_parts[section_name] = [content_left]
-
-    if text_right:
-        text_right = (
-            product.description_right.replace("‡", "")
-            .replace("**", "")
-            .replace("† †", "")
-        )
-        content_right = re.split(pattern_right, text_right, re.MULTILINE)
-        cleaned_parts["Пищевая ценность"] = content_right[1:]
-
-    return cleaned_parts
