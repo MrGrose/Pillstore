@@ -1,6 +1,6 @@
 from app.core.config import settings
 from app.db_crud.base import CRUDBase
-from app.models.orders import OrderItem
+from app.models.orders import Order, OrderItem
 from app.models.products import Product
 from app.schemas.product import PageUrls, ProductPagination, ProductUpdate
 from fastapi import HTTPException, Request, status
@@ -193,12 +193,30 @@ class CrudProduct(CRUDBase):
 
         return product
 
-    async def get_product_available(self, product_id: int, quantity: int) -> Product:
-        return await self.session.scalar(
-            select(self.model).where(
-                self.model.id == product_id, self.model.stock >= quantity
+    async def get_pending_reserved(self, product_id: int) -> int:
+        stmt = (
+            select(func.coalesce(func.sum(OrderItem.quantity), 0))
+            .select_from(OrderItem)
+            .join(Order, Order.id == OrderItem.order_id)
+            .where(
+                OrderItem.product_id == product_id,
+                Order.status == "pending",
             )
         )
+        result = await self.session.scalar(stmt)
+        return int(result or 0)
+
+    async def get_product_available(
+        self, product_id: int, quantity: int
+    ) -> Product | None:
+        product = await self.session.get(self.model, product_id)
+        if not product:
+            return None
+        reserved = await self.get_pending_reserved(product_id)
+        available = (product.stock or 0) - reserved
+        if available < quantity:
+            return None
+        return product
 
     async def count_order_items(self, product_id: int) -> int:
         result = await self.session.scalar(

@@ -30,7 +30,7 @@
             {% if qty == 0 %}
                 <div class="d-flex align-items-end gap-2 mb-3">
                     <label class="mb-0 me-2 fw-bold">Количество:</label>
-                    <input id="quantity-input" type="number" value="1" min="1" max="{{ product.stock }}"
+                    <input id="quantity-input" type="number" value="1" min="1" max="{{ product.available_stock }}"
                         class="form-control form-control-sm input-qty-50">
                     <button class="btn btn-success ms-2 js-add-to-cart" type="button">
                         <i class="fas fa-shopping-cart"></i>

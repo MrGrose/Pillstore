@@ -75,7 +75,7 @@ async def api_get_product_stock(
     product_id: int,
     db: AsyncSession = Depends(get_db),
 ):
-    """Остаток и доступность товара по id."""
+    """Остаток и доступность товара по id (с учётом резерва в pending заказах)."""
     product_svc = ProductService(db)
     product = await product_svc.crud.get_by_id(product_id)
     if not product:
@@ -83,11 +83,13 @@ async def api_get_product_stock(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Продукт с id:{product_id} не найден",
         )
+    reserved = await product_svc.crud.get_pending_reserved(product_id)
+    available = (product.stock or 0) - reserved
     return ProductStockResponse(
         product_id=product.id,
-        stock=product.stock,
+        stock=available,
         is_active=product.is_active,
-        in_stock=product.stock > 0,
+        in_stock=available > 0,
     )
 
 

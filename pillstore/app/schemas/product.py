@@ -107,6 +107,7 @@ class ProductRead(BaseModel):
     image_url: str | None = None
     cart_qty: int = 0
     stock: int = 0
+    available_stock: int | None = None
 
     model_config = ConfigDict(from_attributes=True)
 

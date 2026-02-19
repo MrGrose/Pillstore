@@ -126,6 +126,26 @@ class CrudOrder(CRUDBase):
         result = await self.session.scalars(query)
         return list(result.all())
 
+    async def get_orders_containing_product(
+        self, product_id: int, status_filter: str = "pending"
+    ) -> list[Order]:
+        subq = (
+            select(OrderItem.order_id)
+            .where(OrderItem.product_id == product_id)
+            .distinct()
+        )
+        stmt = (
+            select(self.model)
+            .options(selectinload(self.model.user))
+            .where(
+                self.model.id.in_(subq),
+                self.model.status == status_filter,
+            )
+            .order_by(self.model.created_at.desc())
+        )
+        result = await self.session.scalars(stmt)
+        return list(result.all())
+
     async def get_order(
         self, order_id: int, user_id: int | None = None, load_products: bool = False
     ) -> Order:
@@ -141,6 +161,37 @@ class CrudOrder(CRUDBase):
         stmt = stmt.options(selectinload(self.model.user))
 
         return await self.session.scalar(stmt)
+
+    async def get_pending_reserved(self, product_id: int) -> int:
+        stmt = (
+            select(func.coalesce(func.sum(OrderItem.quantity), 0))
+            .select_from(OrderItem)
+            .join(Order, Order.id == OrderItem.order_id)
+            .where(
+                OrderItem.product_id == product_id,
+                Order.status == "pending",
+            )
+        )
+        result = await self.session.scalar(stmt)
+        return int(result or 0)
+
+    async def get_pending_reserved_map(
+        self, product_ids: list[int]
+    ) -> dict[int, int]:
+        if not product_ids:
+            return {}
+        stmt = (
+            select(OrderItem.product_id, func.sum(OrderItem.quantity))
+            .select_from(OrderItem)
+            .join(Order, Order.id == OrderItem.order_id)
+            .where(
+                Order.status == "pending",
+                OrderItem.product_id.in_(product_ids),
+            )
+            .group_by(OrderItem.product_id)
+        )
+        rows = (await self.session.execute(stmt)).all()
+        return {int(pid): int(qty) for pid, qty in rows}
 
     async def get_orders_paginated(
         self,

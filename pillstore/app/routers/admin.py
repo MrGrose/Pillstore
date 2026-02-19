@@ -51,6 +51,7 @@ async def admin_page(
     category_id: int = Query(None),
     page_inactive: int = Query(1, ge=1),
     page_size_inactive: int = Query(20, ge=1, le=100),
+    reserved_product_id: int = Query(None),
 ):
     product_svc = ProductService(db)
     pagination_active = await product_svc.get_products_page_active(
@@ -61,10 +62,29 @@ async def admin_page(
     )
     flash_message = {"text": message, "type": message_type} if message else None
     admin_svc = AdminService(db)
-    dashboard_stats = await admin_svc.get_admin_page(status_filter)
+    dashboard_stats = await admin_svc.get_admin_page(
+        "pending" if reserved_product_id else status_filter
+    )
+    reserved_product_name = None
+    if reserved_product_id:
+        dashboard_stats["orders"] = (
+            await admin_svc.get_orders_with_product_in_reserve(
+                reserved_product_id
+            )
+        )
+        dashboard_stats["reserved_product_id"] = reserved_product_id
+        p = await admin_svc.product_crud.get_by_id(reserved_product_id)
+        reserved_product_name = p.name if p else None
     dashboard_data = await admin_svc.get_dashboard_data(period)
     dashboard_data["trend_json"] = json.dumps(dashboard_data["trend"])
     product_ids_expiry_soon = await admin_svc.get_product_ids_expiring_soon()
+    all_product_ids = [p.id for p in pagination_active.items]
+    all_product_ids += [p.id for p in pagination_inactive.items]
+    product_reserved = (
+        await admin_svc.get_reserved_by_product_ids(all_product_ids)
+        if all_product_ids
+        else {}
+    )
 
     return templates.TemplateResponse(
         "/admin/admin.html",
@@ -87,6 +107,9 @@ async def admin_page(
             "pagination": pagination_active,
             "product_ids_expiry_soon": product_ids_expiry_soon,
             "expiry_warning_days": settings.EXPIRY_WARNING_DAYS,
+            "product_reserved": product_reserved,
+            "reserved_product_id": reserved_product_id,
+            "reserved_product_name": reserved_product_name,
         },
     )
 

@@ -56,13 +56,40 @@ class AdminService:
         }
 
     async def order_status_admin(self, order_id: int, new_status: str) -> None:
-        order = await self.order_crud.get_order(order_id)
+        order = await self.order_crud.get_order(order_id, load_products=True)
         if not order:
             raise OrderNotFoundError(order_id)
 
         allowed = ("pending", "paid", "transit", "delivered", "cancelled")
         if new_status not in allowed:
             raise BusinessError("Заказ", "Неверный статус")
+
+        if new_status == "paid" and order.status == "pending":
+            for item in order.items:
+                product = await self.product_crud.get_by_id(item.product_id)
+                if not product:
+                    raise BusinessError(
+                        "Заказ", f"Товар {item.product_id} не найден"
+                    )
+                total = (
+                    await self.batch_crud.get_total_stock_from_batches(
+                        product.id
+                    )
+                    if product.id
+                    else 0
+                )
+                if total == 0:
+                    total = product.stock or 0
+                if total < item.quantity:
+                    raise BusinessError(
+                        "Заказ", f"Товара {product.name} больше нет"
+                    )
+                try:
+                    await self.batch_crud.deduct_fifo(
+                        product.id, item.quantity, order.id, item.id
+                    )
+                except ValueError as e:
+                    raise BusinessError("Заказ", str(e)) from e
 
         order.status = new_status
         await self.session.commit()
@@ -134,7 +161,11 @@ class AdminService:
     async def get_product_ids_expiring_soon(
         self, within_days: int | None = None
     ) -> set[int]:
-        days = within_days if within_days is not None else settings.EXPIRY_WARNING_DAYS
+        days = (
+            within_days
+            if within_days is not None
+            else settings.EXPIRY_WARNING_DAYS
+        )
         return await self.batch_crud.get_product_ids_expiring_soon(days)
 
     async def get_dashboard_data(self, period: str = "30d") -> dict:
@@ -153,15 +184,35 @@ class AdminService:
             "sales_by_brand": by_brand,
             "sales_total_revenue": total_revenue,
             "sales_total_margin": total_margin,
-            "top_5_products": await self.admin_crud.top_products(date_from, date_to, 5),
-            "top_5_categories": await self.admin_crud.top_categories(date_from, date_to, 5),
-            "batches_expiring_soon": await self.admin_crud.batches_expiring_soon(30),
-            "trend": await self.admin_crud.trend_by_day(date_from, date_to),
+            "top_5_products": await self.admin_crud.top_products(
+                date_from, date_to, 5
+            ),
+            "top_5_categories": await self.admin_crud.top_categories(
+                date_from, date_to, 5
+            ),
+            "batches_expiring_soon": await self.admin_crud.batches_expiring_soon(
+                30
+            ),
+            "trend": await self.admin_crud.trend_by_day(
+                date_from, date_to
+            ),
         }
 
     async def get_orders_for_admin(self, status_filter: str | None = None) -> list:
         return await self.order_crud.get_orders_user_list(
             status_filter, load_items=True
+        )
+
+    async def get_reserved_by_product_ids(
+        self, product_ids: list[int]
+    ) -> dict[int, int]:
+        return await self.order_crud.get_pending_reserved_map(product_ids)
+
+    async def get_orders_with_product_in_reserve(
+        self, product_id: int
+    ) -> list:
+        return await self.order_crud.get_orders_containing_product(
+            product_id, status_filter="pending"
         )
 
     async def get_products_for_admin_paginated(
@@ -190,7 +241,9 @@ class AdminService:
         if data.url:
             existing = await self.product_crud.get_by_url(data.url)
             if existing:
-                raise BusinessError("Товар", "Товар с таким URL уже существует")
+                raise BusinessError(
+                    "Товар", "Товар с таким URL уже существует"
+                )
         _, product = await self.create_product_admin(data, image)
         return product
 

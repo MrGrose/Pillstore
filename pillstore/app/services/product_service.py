@@ -3,15 +3,18 @@ from decimal import Decimal
 from app.core.logger import logger
 from app.db_crud.cart_crud import CrudCart
 from app.db_crud.category_crud import CrudCategory
+from app.db_crud.order_crud import CrudOrder
 from app.db_crud.products_crud import CrudProduct
 from app.exceptions.handlers import ProductNotFoundError
 from app.models.cart_items import CartItem
 from app.models.categories import Category
+from app.models.orders import Order
 from app.models.products import Product
 from app.models.users import User
 from app.schemas.category import CategoryTreeOut
 from app.schemas.product import (ProductCreate, ProductCreateAPI,
-                                 ProductPagination, ProductUpdateAPI)
+                                 ProductPagination, ProductRead,
+                                 ProductUpdateAPI)
 from app.utils.description_parser import formatted_description
 from app.utils.iherb_scraper import IHerbScraper
 from app.utils.utils import (remove_product_image, save_image_from_url,
@@ -25,6 +28,7 @@ class ProductService:
         self.session = session
         self.crud = CrudProduct(session=session, model=Product)
         self.cat = CrudCategory(session=session, model=Category)
+        self.order_crud = CrudOrder(session=session, model=Order)
         self.scraper = IHerbScraper()
 
     async def get_products_page(
@@ -35,19 +39,33 @@ class ProductService:
         request: Request,
         category_id: int | None = None,
     ) -> ProductPagination:
-        return await self.crud.paginate_products(
+        pagination = await self.crud.paginate_products(
             page, page_size, search, request, category_id
         )
+        if pagination.items:
+            ids = [p.id for p in pagination.items]
+            reserved = await self.order_crud.get_pending_reserved_map(ids)
+            items_with_available = [
+                ProductRead(
+                    **p.model_dump(exclude={"available_stock"}),
+                    available_stock=(p.stock or 0) - reserved.get(p.id, 0),
+                )
+                for p in pagination.items
+            ]
+            return ProductPagination(
+                **pagination.model_dump(exclude={"items"}),
+                items=items_with_available,
+            )
+        return pagination
 
     async def get_product_detail(self, product_id: int, user: User | None) -> Product:
         product = await self.crud.get_by_id(product_id)
         if not product:
             raise ProductNotFoundError(product_id)
+        reserved = await self.crud.get_pending_reserved(product_id)
+        product.available_stock = (product.stock or 0) - reserved
         if user:
             await self.cart_qty_for_product(product_id, user, product)
-            product.available_stock = product.stock - getattr(product, "cart_qty", 0)
-        else:
-            product.available_stock = product.stock
         product.description = await formatted_description(product)
         return product
 

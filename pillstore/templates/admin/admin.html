@@ -223,10 +223,10 @@
                                 {% if product_ids_expiry_soon %}
                                 <p class="text-muted small mb-1"><span class="bg-warning bg-opacity-25 px-1 rounded">Желтым</span> — остаток срока годности партии менее {{ expiry_warning_days }} дней.</p>
                                 {% endif %}
-                                <table class="table table-hover">
+                                <table class="table table-hover table-products-admin">
                                     <thead class="table-dark">
                                         <tr>
-                                            <th>ID</th><th>Изображение</th><th>Название</th><th>Шт</th><th>Цена</th><th>Действия</th>
+                                            <th>ID</th><th>Изображение</th><th>Название</th><th>Остаток</th><th>Резерв</th><th>Цена</th><th>Действия</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -235,7 +235,8 @@
                                             <td>{{ product.id }}</td>
                                             <td><img src="{{ product.image_url or '/static/no-image.png' }}" width="50" class="rounded"></td>
                                             <td>{{ product.name }}</td>
-                                            <td>{{ product.stock }}</td>
+                                            <td>{% set r = product_reserved.get(product.id, 0) %}{{ (product.stock or 0) - r }}</td>
+                                            <td>{% set r = product_reserved.get(product.id, 0) %}{% if r %}<a href="/admin?tab=orders&reserved_product_id={{ product.id }}" class="text-primary text-decoration-none" title="Заказы с этим товаром в резерве">{{ r }}</a>{% else %}—{% endif %}</td>
                                             <td>{{ "%.2f"|format(product.price) }}</td>
                                             <td>
                                                 <div class="btn-group btn-group-sm" role="group">
@@ -284,10 +285,10 @@
                                         </div>
                                     </div>
                                 </div>
-                                <table class="table table-hover">
+                                <table class="table table-hover table-products-admin">
                                     <thead class="table-dark">
                                         <tr>
-                                            <th>ID</th><th>Изображение</th><th>Название</th><th>Шт</th><th>Цена</th><th>Действия</th>
+                                            <th>ID</th><th>Изображение</th><th>Название</th><th>Остаток</th><th>Резерв</th><th>Цена</th><th>Действия</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -296,7 +297,8 @@
                                             <td>{{ product_not_active.id }}</td>
                                             <td><img src="{{ product_not_active.image_url or '/static/no-image.png' }}" width="50" class="rounded"></td>
                                             <td>{{ product_not_active.name }}</td>
-                                            <td>{{ product_not_active.stock }}</td>
+                                            <td>{% set r = product_reserved.get(product_not_active.id, 0) %}{{ (product_not_active.stock or 0) - r }}</td>
+                                            <td>{% set r = product_reserved.get(product_not_active.id, 0) %}{% if r %}<a href="/admin?tab=orders&reserved_product_id={{ product_not_active.id }}" class="text-primary text-decoration-none" title="Заказы с этим товаром в резерве">{{ r }}</a>{% else %}—{% endif %}</td>
                                             <td>{{ "%.2f"|format(product_not_active.price) }}</td>
                                             <td>
                                                 <div class="btn-group btn-group-sm" role="group">
@@ -329,6 +331,9 @@
                         </div>
                         <div class="tab-pane fade {{ 'show active' if tab == 'orders' else '' }}" id="orders">
                             <h4>Последние заказы</h4>
+                                    {% if reserved_product_id %}
+                                    <p class="text-muted mb-2">Заказы с товаром в резерве: <strong>{{ reserved_product_name or ('#' ~ reserved_product_id) }}</strong> <a href="/admin?tab=orders" class="ms-2">Показать все</a></p>
+                                    {% endif %}
                                     <div class="row mb-3">
                                         <div class="col-md-6">
                                             <h5 class="mb-2">Заказы 
@@ -340,7 +345,7 @@
                                         </div>
                                         <div class="col-md-6 text-end">
                                             <select class="form-select w-auto d-inline-block" 
-                                                    onchange="window.location.href=`/admin/?tab=orders&status_filter=${this.value}`"
+                                                    onchange="window.location.href='/admin?tab=orders&status_filter='+encodeURIComponent(this.value)"
                                                     class="admin-select-url">
                                                 <option value="all" {{ 'selected' if not status_filter or status_filter == 'all' else '' }}>Все статусы</option>
                                                 <option value="pending" {{ 'selected' if status_filter == 'pending' else '' }}>Ожидают оплаты</option>

@@ -6,6 +6,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import templates
 from app.core.deps import get_db
 from app.core.security import get_current_user
+from app.db_crud.order_crud import CrudOrder
+from app.models.orders import Order
 from app.models.products import Product
 from app.models.users import User as UserModel
 from app.services.cart import get_cart_count
@@ -67,11 +69,16 @@ async def checkout_order(
     cart_items, total = await cart_svc.get_cart_page(current_user, ordered=False)
     if not cart_items:
         return RedirectResponse("/orders/cart", status_code=303)
+    order_crud = CrudOrder(db, Order)
+    product_ids = [item.product_id for item in cart_items]
+    reserved_map = await order_crud.get_pending_reserved_map(product_ids)
     items_data = []
     for item in cart_items:
         if not item.product or not item.product.is_active:
             continue
-        if (item.product.stock or 0) < item.quantity:
+        reserved = reserved_map.get(item.product_id, 0)
+        available = (item.product.stock or 0) - reserved
+        if available < item.quantity:
             continue
         unit_cost = getattr(item.product, "cost", None) or 0
         items_data.append({

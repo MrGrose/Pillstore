@@ -50,9 +50,15 @@ class OrderService:
                 raise BusinessError(
                     "Заказ", f"Продукт {cart_item.product_id} не доступен"
                 )
-            if product.stock < cart_item.quantity:
+            reserved = await self.order_crud.get_pending_reserved(
+                cart_item.product_id
+            )
+            available = (product.stock or 0) - reserved
+            if available < cart_item.quantity:
                 raise BusinessError(
-                    "Заказ", f"Недостаточно товара на складе {product.name}"
+                    "Заказ",
+                    f"Недостаточно товара на складе {product.name} "
+                    f"(доступно с учётом резерва: {available})",
                 )
             unit_cost = Decimal(str(getattr(product, "cost", 0) or 0))
 
@@ -84,7 +90,7 @@ class OrderService:
 
         order = Order(
             user_id=current_user.id,
-            status="paid",
+            status="pending",
             total_amount=Decimal(str(checkout_data.get("total", 0))),
             contact_phone=(checkout_data.get("contact_phone") or "").strip() or None,
             personal_data_consent=bool(checkout_data.get("personal_data_consent")),
@@ -100,9 +106,13 @@ class OrderService:
             product = await self.product_crud.get_by_id(product_id)
             if not product or not product.is_active:
                 raise BusinessError("Заказ", f"Товар {product_id} недоступен")
-            if (product.stock or 0) < quantity:
+            reserved = await self.order_crud.get_pending_reserved(product_id)
+            available = (product.stock or 0) - reserved
+            if available < quantity:
                 raise BusinessError(
-                    "Заказ", f"Недостаточно товара на складе: {product.name}"
+                    "Заказ",
+                    f"Недостаточно товара на складе: {product.name} "
+                    f"(доступно с учётом резерва: {available})",
                 )
             total_price = unit_price * quantity
             order_item = OrderItem(
@@ -115,12 +125,6 @@ class OrderService:
             )
             self.session.add(order_item)
             await self.session.flush()
-            try:
-                await self.batch_crud.deduct_fifo(
-                    product_id, quantity, order.id, order_item.id
-                )
-            except ValueError as e:
-                raise BusinessError("Заказ", str(e)) from e
 
         await self.session.flush()
         await self.cart_crud.delete_cart_by_user(current_user.id)
@@ -204,7 +208,8 @@ class OrderService:
         ):
             raise BusinessError("Заказ", "Нет доступа")
 
-        await self.batch_crud.return_deductions_for_order_item(order_item)
+        if order_item.order.status == "paid":
+            await self.batch_crud.return_deductions_for_order_item(order_item)
         await self.session.delete(order_item)
         await self.session.flush()
         await self.order_crud.recalculate_total(order_item.order)
@@ -229,26 +234,17 @@ class OrderService:
 
         if order.user_id != current_user.id and current_user.role != "seller":
             raise BusinessError("Заказ", "Нет доступа")
+        if order.status != "pending":
+            raise BusinessError(
+                "Заказ",
+                "Добавлять позиции можно только в заказ со статусом "
+                "«ожидает оплаты»",
+            )
 
         unit_cost = Decimal(str(getattr(product, "cost", 0) or 0))
         await self.order_crud.add_or_update_item(
             order, item_id, quantity, product.price, unit_cost=unit_cost
         )
-        await self.session.flush()
-        order_item = await self.order_crud.get_order_item_by_product(
-            order.id, item_id
-        )
-        if order_item:
-            try:
-                await self.batch_crud.deduct_fifo(
-                    item_id,
-                    quantity,
-                    order.id,
-                    order_item.id,
-                )
-            except ValueError as e:
-                raise BusinessError("Заказ", str(e)) from e
-
         await self.session.flush()
         await self.order_crud.recalculate_total(order)
         await self.session.commit()
