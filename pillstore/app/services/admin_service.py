@@ -1,7 +1,7 @@
 from fastapi import UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db_crud.admin_crud import CrudAdmin
+from app.db_crud.admin_crud import CrudAdmin, _period_to_dates
 from app.db_crud.batch_crud import CrudBatch
 from app.db_crud.category_crud import CrudCategory
 from app.db_crud.order_crud import CrudOrder
@@ -129,6 +129,28 @@ class AdminService:
 
     async def get_stats(self) -> dict:
         return await self.admin_crud.dashboard_stats()
+
+    async def get_dashboard_data(self, period: str = "30d") -> dict:
+        date_from, date_to = _period_to_dates(period)
+        sales = await self.admin_crud.sales_report(date_from, date_to)
+        by_cat = await self.admin_crud.sales_by_category(date_from, date_to)
+        by_brand = await self.admin_crud.sales_by_brand(date_from, date_to)
+        total_revenue = sum(r["revenue"] for r in sales)
+        total_margin = sum(r["margin"] for r in sales)
+        return {
+            "period": period,
+            "date_from": date_from,
+            "date_to": date_to,
+            "sales_table": sales,
+            "sales_by_category": by_cat,
+            "sales_by_brand": by_brand,
+            "sales_total_revenue": total_revenue,
+            "sales_total_margin": total_margin,
+            "top_5_products": await self.admin_crud.top_products(date_from, date_to, 5),
+            "top_5_categories": await self.admin_crud.top_categories(date_from, date_to, 5),
+            "batches_expiring_soon": await self.admin_crud.batches_expiring_soon(30),
+            "trend": await self.admin_crud.trend_by_day(date_from, date_to),
+        }
 
     async def get_orders_for_admin(self, status_filter: str | None = None) -> list:
         return await self.order_crud.get_orders_user_list(
