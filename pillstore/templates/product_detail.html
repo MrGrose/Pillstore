@@ -16,7 +16,7 @@
         <h2 class="text-primary">{{ "%.2f"|format(product.price) }} ₽</h2>
         <p><strong>Бренд:</strong> {{ product.brand or 'Не указан' }}</p>
         {% if current_user.role == 'seller' %}
-        <p><strong>URL:</strong> <a href="{{ product.url }}" target="_blank">{{ product.url }}</a></p>
+        <p><strong>URL:</strong> <a href="{{ product.url if product.url else '' }}" target="_blank">{{ product.url if product.url else '' }}</a></p>
         {% endif %}
         <div class="mt-4 cart-controls" data-product-id="{{ product.id }}">
             {% set qty = product.cart_qty or 0 %}

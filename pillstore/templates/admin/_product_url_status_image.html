@@ -1,0 +1,20 @@
+<div class="col-md-6">
+    <label class="form-label fw-bold pb-2 cursor-pointer">URL (необязательно)</label>
+    <input type="text" name="url" value="{{ product.url or '' if product else '' }}" class="form-control" placeholder="">
+</div>
+<div class="col-md-6">
+    <label class="form-label fw-bold pb-2 cursor-pointer">Статус</label>
+    <select name="is_active" class="form-select">
+        <option value="true" {% if not product or product.is_active %}selected{% endif %}>Активен</option>
+        <option value="false" {% if product and not product.is_active %}selected{% endif %}>Неактивен</option>
+    </select>
+</div>
+<div class="col-md-6">
+    <label class="form-label fw-bold pb-2 cursor-pointer">Изображение</label>
+    {% if product and product.image_url %}
+    <div class="mb-2">
+        <img src="{{ product.image_url }}" class="img-thumbnail img-product-thumb">
+    </div>
+    {% endif %}
+    <input type="file" name="image" class="form-control" accept="image/*">
+</div>

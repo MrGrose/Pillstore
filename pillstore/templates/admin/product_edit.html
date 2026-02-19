@@ -28,14 +28,14 @@
                         <div class="row g-3">
                             <div class="col-md-6">
                                 <label class="form-label fw-bold pb-2 cursor-pointer">Название *</label>
-                                <input type="text" name="name" 
-                                       value="{{ product.name if product else '' }}" 
+                                <input type="text" name="name"
+                                       value="{{ product.name if product else '' }}"
                                        class="form-control" required>
                             </div>
                             <div class="col-md-6">
                                 <label class="form-label fw-bold pb-2 cursor-pointer">Бренд</label>
-                                <input type="text" name="brand" 
-                                       value="{{ product.brand if product else '' }}" 
+                                <input type="text" name="brand"
+                                       value="{{ product.brand if product else '' }}"
                                        class="form-control">
                             </div>
                             <div class="row">
@@ -45,28 +45,24 @@
                                     </summary>
                                     <div class="row pt-2">
                                         {% for root in categories %}
-                                            <div class="col-md-4 col-lg-3 mb-2">
-                                                <div class="form-check">
-                                                    <input class="form-check-input" type="checkbox" 
-                                                        name="category_ids" value="{{ root.id }}" id="cat_{{ root.id }}"
-                                                        {% if product and root.id in product.categories|map(attribute='id')|list %}checked{% endif %}>
-                                                    <label class="form-check-label" for="cat_{{ root.id }}">
-                                                        {{ root.name }}
-                                                    </label>
-                                                </div>
+                                        <div class="col-md-4 col-lg-3 mb-2">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox"
+                                                    name="category_ids" value="{{ root.id }}" id="cat_{{ root.id }}"
+                                                    {% if product and root.id in product.categories|map(attribute='id')|list %}checked{% endif %}>
+                                                <label class="form-check-label" for="cat_{{ root.id }}">{{ root.name }}</label>
                                             </div>
-                                            {% for child in root.children %}
-                                                <div class="col-md-4 col-lg-3 mb-2">
-                                                    <div class="form-check">
-                                                        <input class="form-check-input" type="checkbox" 
-                                                            name="category_ids" value="{{ child.id }}" id="cat_{{ child.id }}"
-                                                            {% if product and child.id in product.categories|map(attribute='id')|list %}checked{% endif %}>
-                                                        <label class="form-check-label" for="cat_{{ child.id }}">
-                                                            &nbsp;&nbsp;{{ child.name }}
-                                                        </label>
-                                                    </div>
-                                                </div>
-                                            {% endfor %}
+                                        </div>
+                                        {% for child in root.children %}
+                                        <div class="col-md-4 col-lg-3 mb-2">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox"
+                                                    name="category_ids" value="{{ child.id }}" id="cat_{{ child.id }}"
+                                                    {% if product and child.id in product.categories|map(attribute='id')|list %}checked{% endif %}>
+                                                <label class="form-check-label" for="cat_{{ child.id }}">&nbsp;&nbsp;{{ child.name }}</label>
+                                            </div>
+                                        </div>
+                                        {% endfor %}
                                         {% endfor %}
                                     </div>
                                 </details>
@@ -74,25 +70,36 @@
                             <div class="row g-3">
                                 <div class="col-md-4">
                                     <label class="form-label fw-bold pb-2 cursor-pointer">Цена *</label>
-                                    <input type="number" name="price" step="0.01" min="0" 
-                                        value="{{ product.price if product else '' }}" 
+                                    <input type="number" name="price" step="0.01" min="0"
+                                        value="{{ product.price if product else '' }}"
                                         class="form-control" required>
                                 </div>
                                 <div class="col-md-4">
                                     <label class="form-label fw-bold pb-2 cursor-pointer">Себестоимость</label>
-                                    <input type="number" name="cost" step="0.01" min="0" 
-                                        value="{{ product.cost if product else 0 }}" 
+                                    <input type="number" name="cost" step="0.01" min="0"
+                                        value="{{ product.cost if product else 0 }}"
                                         class="form-control" placeholder="0">
                                 </div>
                                 <div class="col-md-4">
                                     <label class="form-label fw-bold pb-2 cursor-pointer">Дата создания</label>
-                                    <input type="datetime-local" name="created_at" 
+                                    <input type="datetime-local" name="created_at"
                                         value="{{ created_at_iso }}" class="form-control" step="1">
                                 </div>
-                                {% if not product or batches is not defined %}
+                                {% if product and batches is not defined %}
                                 <div class="col-md-6">
                                     <label class="form-label fw-bold pb-2 cursor-pointer">Склад</label>
                                     <input type="number" name="stock" min="0" value="{{ product.stock if product else '' }}" class="form-control">
+                                </div>
+                                {% endif %}
+                                {% if not product %}
+                                <div class="col-12 mt-2">
+                                    {% set quantity_name = 'batch_quantity' %}
+                                    {% set expiry_name = 'batch_expiry_date' %}
+                                    {% set quantity_value = 1 %}
+                                    {% set expiry_value = '' %}
+                                    {% set section_label = '' %}
+                                    {% set as_form = false %}
+                                    {% include "admin/_product_batch_inputs.html" %}
                                 </div>
                                 {% endif %}
                                 {% if product and batches is not defined %}
@@ -107,43 +114,7 @@
                     </form>
                             {% endif %}
                             {% if product and batches is defined %}
-                            <div class="row g-3 mt-0">
-                                <div class="col-md-6">
-                                    <label class="form-label fw-bold pb-2 cursor-pointer">Склад</label>
-                                    <div class="form-control-plaintext py-0 mb-2">Всего: <strong>{{ product.stock }}</strong></div>
-                                    <ul class="list-group list-group-flush mb-2">
-                                        {% for b in batches %}
-                                        <li class="list-group-item px-0 py-2 small">
-                                            <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
-                                                <span>
-                                                    <strong>{{ b.quantity }}</strong> шт -
-                                                    {% if b.expiry_date %} сроком до годности {{ b.expiry_date.strftime('%d.%m.%Y') }}{% endif %}
-                                                    {% if b.batch_code %} <code>{{ b.batch_code }}</code>{% endif %}
-                                                </span>
-                                                <div class="d-flex flex-wrap align-items-center gap-1">
-                                                    <form method="post" action="/admin/products/{{ product.id }}/batches/{{ b.id }}/delete?tab={{ tab }}" class="d-inline" onsubmit="return confirm('Удалить партию?');">
-                                                        <button type="submit" class="btn btn-sm btn-outline-danger">Удалить</button>
-                                                    </form>
-                                                </div>
-                                            </div>
-                                        </li>
-                                        {% else %}
-                                        <li class="list-group-item px-0 py-2 text-muted small">Партий нет.</li>
-                                        {% endfor %}
-                                    </ul>
-                                    <form method="post" action="/admin/products/{{ product.id }}/batches?tab={{ tab }}" class="d-flex flex-wrap align-items-end gap-2">
-                                        <div>
-                                            <label class="form-label small mb-0">Кол-во пачек *</label>
-                                            <input type="number" name="quantity" min="1" value="1" class="form-control form-control-sm input-qty-sm" required>
-                                        </div>
-                                        <div>
-                                            <label class="form-label small mb-0">Срок годности</label>
-                                            <input type="date" name="expiry_date" class="form-control form-control-sm input-date-sm">
-                                        </div>
-                                        <button type="submit" class="btn btn-sm btn-outline-primary">Добавить партию</button>
-                                    </form>
-                                </div>
-                            </div>
+                            {% include "admin/_product_batch_list.html" %}
                             {% endif %}
                     {% if product and batches is defined %}
                     <form method="post" action="{{ action_url }}" enctype="multipart/form-data" class="mt-3">
@@ -156,53 +127,28 @@
                        <input type="hidden" name="is_active" value="{{ 'true' if product.is_active else 'false' }}">
                        {% for c in product.categories %}<input type="hidden" name="category_ids" value="{{ c.id }}">{% endfor %}
                     {% endif %}
-                            <div class="row g-3">
-                                <div class="col-md-6">
-                                    <label class="form-label fw-bold pb-2 cursor-pointer">URL (необязательно)</label>
-                                    <input type="text" name="url" 
-                                        value="{{ product.url or '' }}" class="form-control" placeholder="">
-                                </div>
-                                <div class="col-md-6">
-                                    <label class="form-label fw-bold pb-2 cursor-pointer">Статус</label>
-                                    <select name="is_active" class="form-select">
-                                        <option value="true" {% if not product or product.is_active %}selected{% endif %}>
-                                            Активен
-                                        </option>
-                                        <option value="false" {% if product and not product.is_active %}selected{% endif %}>
-                                            Неактивен
-                                        </option>
-                                    </select>
-                                </div>
-                                <div class="col-md-6">
-                                    <label class="form-label fw-bold pb-2 cursor-pointer">Изображение</label>
-                                    {% if product and product.image_url %}
-                                    <div class="mb-2">
-                                        <img src="{{ product.image_url }}" class="img-thumbnail img-product-thumb">
-                                    </div>
-                                    {% endif %}
-                                    <input type="file" name="image" class="form-control" accept="image/*">
-                                </div>
-                            </div>
+                            {% if not product or batches is not defined %}
                             <br>
-                            {% if product_description %}
-                            {% for section_name, items in product_description.items() %}
-                            <div class="col-md-12 mb-3">
-                                <input type="hidden" name="desc_section_name" value="{{ section_name }}">
-                                <label class="form-label fw-bold pb-1">{{ section_name }}</label>
-                                <textarea name="desc_section_content" rows="{% if section_name in right_section_titles %}4{% else %}5{% endif %}" class="form-control font-monospace small">{{ items | join('\n') }}</textarea>
+                            <div class="row g-3">
+                            {% include "admin/_product_url_status_image.html" %}
+                            {% include "admin/_product_description_fields.html" %}
                             </div>
-                            {% endfor %}
-                            {% else %}
-                            <div class="col-md-12">
-                                <label class="form-label fw-bold pb-2 cursor-pointer">Описание</label>
-                                <textarea name="description_left" rows="6" class="form-control">{{ product.description_left if product else '' }}</textarea>
+                            <div class="d-flex gap-2 mt-4">
+                                <a href="/admin?tab={{ tab }}" class="btn btn-secondary">
+                                    <i class="fas fa-times me-2"></i>Отмена
+                                </a>
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="fas fa-save me-2"></i>Сохранить товар
+                                </button>
                             </div>
-                            <div class="col-md-12">
-                                <label class="form-label fw-bold pb-2 cursor-pointer">Доп. информация</label>
-                                <textarea name="description_right" rows="6" class="form-control">{{ product.description_right if product else '' }}</textarea>
-                            </div>
+                    </form>
                             {% endif %}
-                        </div>
+                            {% if product and batches is defined %}
+                            <br>
+                            <div class="row g-3">
+                            {% include "admin/_product_url_status_image.html" %}
+                            {% include "admin/_product_description_fields.html" %}
+                            </div>
                         <div class="d-flex gap-2 mt-4">
                             <a href="/admin?tab={{ tab }}" class="btn btn-secondary">
                                 <i class="fas fa-times me-2"></i>Отмена
@@ -212,6 +158,7 @@
                             </button>
                         </div>
                     </form>
+                    {% endif %}
                 </div>
             </div>
         </div>

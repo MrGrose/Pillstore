@@ -1,0 +1,32 @@
+<div class="row g-3 mt-0">
+    <div class="col-md-6">
+        <label class="form-label fw-bold pb-2 cursor-pointer">Склад</label>
+        <div class="form-control-plaintext py-0 mb-2">Всего: <strong>{{ product.stock }}</strong></div>
+        <ul class="list-group list-group-flush mb-2">
+            {% for b in batches %}
+            <li class="list-group-item px-0 py-2 small">
+                <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+                    <span>
+                        <strong>{{ b.quantity }}</strong> шт -
+                        {% if b.expiry_date %} сроком годности до {{ b.expiry_date.strftime('%d.%m.%Y') }}{% endif %}
+                        {% if b.batch_code %} <code>{{ b.batch_code }}</code>{% endif %}
+                    </span>
+                    <form method="post" action="/admin/products/{{ product.id }}/batches/{{ b.id }}/delete?tab={{ tab }}" class="d-inline" onsubmit="return confirm('Удалить партию?');">
+                        <button type="submit" class="btn btn-sm btn-outline-danger">Удалить</button>
+                    </form>
+                </div>
+            </li>
+            {% else %}
+            <li class="list-group-item px-0 py-2 text-muted small">Партий нет.</li>
+            {% endfor %}
+        </ul>
+        <form method="post" action="/admin/products/{{ product.id }}/batches?tab={{ tab }}" class="d-flex flex-wrap align-items-end gap-2">
+            {% set quantity_name = 'quantity' %}
+            {% set expiry_name = 'expiry_date' %}
+            {% set quantity_value = 1 %}
+            {% set expiry_value = '' %}
+            {% set as_form = true %}
+            {% include "admin/_product_batch_inputs.html" %}
+        </form>
+    </div>
+</div>

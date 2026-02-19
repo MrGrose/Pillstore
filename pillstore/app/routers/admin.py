@@ -12,13 +12,22 @@ from app.services.admin_service import AdminService
 from app.services.cart import get_cart_count
 from app.services.category_service import CategoryService
 from app.services.product_service import ProductService
+from app.services.user_service import UserService
 from app.utils.description_parser import (
+    DEFAULT_DESCRIPTION_SECTIONS,
     RIGHT_SECTION_TITLES,
     formatted_description,
 )
-from app.services.user_service import UserService
-from fastapi import (APIRouter, Depends, File, Form, HTTPException, Query,
-                     Request, UploadFile, status)
+from fastapi import (
+    APIRouter,
+    Depends,
+    File,
+    Form,
+    HTTPException,
+    Query,
+    Request,
+    UploadFile,
+)
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -179,6 +188,7 @@ async def new_product_form(
 ):
     category_svc = CategoryService(db)
     categories = await category_svc.get_all_categories()
+    product_description = {name: [] for name in DEFAULT_DESCRIPTION_SECTIONS}
     return templates.TemplateResponse(
         "admin/product_edit.html",
         {
@@ -188,7 +198,7 @@ async def new_product_form(
             "action_url": "/admin/products",
             "categories": categories,
             "current_user": current_user,
-            "product_description": {},
+            "product_description": product_description,
             "right_section_titles": RIGHT_SECTION_TITLES,
         },
     )
@@ -327,6 +337,7 @@ async def add_product_batch(
 
 @router.post("/products", response_class=HTMLResponse)
 async def admin_product_create(
+    request: Request,
     category_ids: list[int] = Form([]),
     tab: str = Form("products"),
     name: str = Form(...),
@@ -335,6 +346,9 @@ async def admin_product_create(
     price: float = Form(...),
     cost: float = Form(0),
     stock: int = Form(0),
+    batch_quantity: int = Form(0),
+    batch_expiry_date: str = Form(None),
+    url: str | None = Form(None),
     description_left: str = Form(None),
     description_right: str = Form(None),
     is_active: bool = Form(True),
@@ -342,6 +356,16 @@ async def admin_product_create(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_seller),
 ):
+    form = await request.form()
+    sn = form.getlist("desc_section_name")
+    sc = form.getlist("desc_section_content")
+    if sn and sc and len(sn) == len(sc):
+        description_left, description_right = _build_description_from_section_lists(sn, sc)
+    else:
+        description_left = description_left or ""
+        description_right = description_right or ""
+    url_value = (url or "").strip() or None
+    effective_stock = 0 if batch_quantity and int(batch_quantity) > 0 else stock
     data = ProductCreate(
         name=name,
         name_en=name_en,
@@ -351,12 +375,20 @@ async def admin_product_create(
         description_left=description_left,
         description_right=description_right,
         category_id=category_ids if category_ids else [],
-        stock=stock,
+        stock=effective_stock,
         is_active=is_active,
+        url=url_value,
         seller_id=current_user.id,
     )
     admin_svc = AdminService(db)
-    msg, _product = await admin_svc.create_product_admin(data, image)
+    msg, product = await admin_svc.create_product_admin(data, image)
+    if batch_quantity and int(batch_quantity) > 0:
+        await admin_svc.add_batch_admin(
+            product_id=product.id,
+            quantity=int(batch_quantity),
+            expiry_date=(batch_expiry_date or "").strip() or None,
+        )
+        msg = f"{msg}. Добавлено {batch_quantity} шт."
     return redirect_admin(tab, message=msg, message_type="success")
 
 

@@ -1,0 +1,18 @@
+{% if product_description %}
+{% for section_name, items in product_description.items() %}
+<div class="col-md-12 mb-3">
+    <input type="hidden" name="desc_section_name" value="{{ section_name }}">
+    <label class="form-label fw-bold pb-1">{{ section_name }}</label>
+    <textarea name="desc_section_content" rows="{% if section_name in right_section_titles %}4{% else %}5{% endif %}" class="form-control font-monospace small">{{ items | join('\n') }}</textarea>
+</div>
+{% endfor %}
+{% else %}
+<div class="col-md-12">
+    <label class="form-label fw-bold pb-2 cursor-pointer">Описание</label>
+    <textarea name="description_left" rows="6" class="form-control">{{ product.description_left if product else '' }}</textarea>
+</div>
+<div class="col-md-12">
+    <label class="form-label fw-bold pb-2 cursor-pointer">Доп. информация</label>
+    <textarea name="description_right" rows="6" class="form-control">{{ product.description_right if product else '' }}</textarea>
+</div>
+{% endif %}
