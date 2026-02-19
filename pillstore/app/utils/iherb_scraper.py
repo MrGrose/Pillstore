@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import logging
 import random
 import re
 import time
@@ -15,6 +14,13 @@ import cloudscraper
 import requests
 from bs4 import BeautifulSoup
 from deep_translator import GoogleTranslator
+
+from app.utils.description_parser import (
+    _strip_disclaimer as _strip_iherb_translation_disclaimer,
+    split_right_column_text,
+    split_text_by_section_headers,
+)
+
 
 try:
     from playwright.sync_api import sync_playwright
@@ -32,7 +38,6 @@ def _translate_en_ru(text: str) -> str:
         return text
 
 
-logger = logging.getLogger(__name__)
 _playwright_executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="playwright")
 BASE = "https://www.iherb.com"
 
@@ -46,7 +51,7 @@ HEADERS = {
         "text/html,application/xhtml+xml,application/xml;q=0.9,"
         "image/avif,image/webp,image/apng,*/*;q=0.8"
     ),
-    "Accept-Language": "en-US,en;q=0.9",
+    "Accept-Language": "ru-RU,ru;q=0.9,en;q=0.8",
     "Accept-Encoding": "gzip, deflate, br",
     "Cache-Control": "no-cache",
     "Pragma": "no-cache",
@@ -57,6 +62,130 @@ HEADERS = {
 
 REQUEST_TIMEOUT = 45
 SLEEP_BETWEEN_REQUESTS = (2.0, 4.0)
+
+SKIP_DETAILS_SECTIONS = {"Отказ от ответственности", "Производитель"}
+
+
+def _parse_overview_section(overview_block) -> list[dict]:
+    sections = []
+    direct_divs = overview_block.find_all("div", recursive=False)
+    with_h3 = [d for d in direct_divs if d.select_one("h3")]
+    if with_h3:
+        for block in with_h3:
+            h3 = block.select_one("h3")
+            if not h3:
+                continue
+            title = h3.get_text(strip=True)
+            if title in SKIP_DETAILS_SECTIONS:
+                continue
+            content_div = block.select_one("div")
+            if not content_div:
+                content_div = block
+            items = []
+            for li in content_div.select("ul li"):
+                t = li.get_text(separator=" ", strip=True)
+                if t:
+                    items.append(t)
+            for p in content_div.select("p"):
+                t = p.get_text(separator=" ", strip=True)
+                if t:
+                    items.append(_strip_iherb_translation_disclaimer(t))
+            if not items:
+                text = content_div.get_text(separator=" ", strip=True)
+                if text:
+                    items = [_strip_iherb_translation_disclaimer(text)]
+            if items:
+                sections.append({"title": title, "content": items})
+        if sections:
+            return sections
+    div = overview_block.select_one("div") or overview_block
+    full_text = div.get_text(separator="\n", strip=True)
+    parsed = split_text_by_section_headers(full_text)
+    if parsed:
+        return parsed
+    items = []
+    for li in div.select("ul li"):
+        t = li.get_text(separator=" ", strip=True)
+        if t:
+            items.append(t)
+    for p in div.select("p"):
+        t = p.get_text(separator=" ", strip=True)
+        if t:
+            items.append(_strip_iherb_translation_disclaimer(t))
+    if items:
+        sections.append({"title": "О продукте", "content": items})
+    return sections
+
+
+def _parse_details_sections(details_block) -> list[dict]:
+    sections = []
+    for block in details_block.select(":scope > div"):
+        if block.get("class") and "overview-link-wrapper" in block.get("class", []):
+            continue
+        h3 = block.select_one("h3")
+        if not h3:
+            continue
+        title = h3.get_text(strip=True)
+        if title in SKIP_DETAILS_SECTIONS:
+            continue
+        content_div = block.select_one("div")
+        if not content_div:
+            continue
+        paras = [p.get_text(separator=" ", strip=True) for p in content_div.select("p") if p.get_text(strip=True)]
+        if not paras:
+            text = content_div.get_text(separator=" ", strip=True)
+            if text:
+                paras = [_strip_iherb_translation_disclaimer(text)]
+        else:
+            paras = [_strip_iherb_translation_disclaimer(p) for p in paras]
+        if paras:
+            sections.append({"title": title, "content": paras})
+    return sections
+
+
+def _parse_supplement_sections(supplement_block) -> list[dict]:
+    sections = []
+    table = supplement_block.select_one(".supplement-facts-container table")
+    if table:
+        rows = []
+        for tr in table.select("tr"):
+            row_text = tr.get_text(separator=" ", strip=True)
+            if row_text:
+                rows.append(row_text.replace("† †", "†"))
+        if rows:
+            sections.append({"title": "Информация о добавке", "content": rows})
+    for block in supplement_block.select(":scope > div"):
+        if block.select_one(".supplement-facts-container"):
+            continue
+        h3 = block.select_one("h3")
+        if not h3:
+            continue
+        title = h3.get_text(strip=True)
+        content_div = block.select_one("div")
+        if not content_div:
+            continue
+        paras = [p.get_text(separator=" ", strip=True) for p in content_div.select("p") if p.get_text(strip=True)]
+        if not paras:
+            text = content_div.get_text(separator=" ", strip=True)
+            if text:
+                paras = [text]
+        if paras:
+            sections.append({"title": title, "content": paras})
+    return sections
+
+
+def _build_structured_description(
+    soup, overview_block, details_block, supplement_block
+) -> tuple[str | None, str | None]:
+    left_sections = []
+    if overview_block:
+        left_sections.extend(_parse_overview_section(overview_block))
+    if details_block:
+        left_sections.extend(_parse_details_sections(details_block))
+    right_sections = _parse_supplement_sections(supplement_block) if supplement_block else []
+    left_json = json.dumps(left_sections, ensure_ascii=False) if left_sections else None
+    right_json = json.dumps(right_sections, ensure_ascii=False) if right_sections else None
+    return left_json, right_json
 
 
 def sleep_politely():
@@ -93,14 +222,22 @@ class IHerbScraper:
             browser={"browser": "chrome", "platform": "windows", "desktop": True}
         )
         self.sess.headers.update(HEADERS)
-        self.sess.cookies.set("iher-pref1", "en-US")
-        self.sess.cookies.set("iher-pref2", "US")
+        self.sess.cookies.set("iher-pref1", "ru-RU")
+        self.sess.cookies.set("iher-pref2", "RU")
 
     def _normalize_www(self, url: str) -> str:
         pu = urlparse(url)
         if pu.netloc.startswith("de.iherb.com"):
             pu = pu._replace(netloc="www.iherb.com")
         return urlunparse(pu)
+
+    def _product_url_for_rubles(self, url: str) -> str:
+        pu = urlparse(url)
+        path = (pu.path or "").strip().lower()
+        if path.startswith("/pr/") and "iherb.com" in pu.netloc and "ru.iherb.com" not in pu.netloc:
+            pu = pu._replace(netloc="ru.iherb.com")
+            return urlunparse(pu)
+        return url
 
     def _is_cloudflare_challenge(self, resp: requests.Response) -> bool:
         if resp.status_code in (403, 503):
@@ -112,33 +249,40 @@ class IHerbScraper:
             or "checking your browser" in text
         )
 
-    def _fetch_via_playwright(self, url: str) -> str | None:
+    def _fetch_via_playwright(self, url: str, wait_selector: str | None = None) -> str | None:
         if not PLAYWRIGHT_AVAILABLE or sync_playwright is None:
             return None
         try:
             with sync_playwright() as p:
                 browser = p.chromium.launch(headless=True, args=["--no-sandbox"])
                 context = browser.new_context(
-                    locale="en-US",
+                    locale="ru-RU",
                     user_agent=HEADERS["User-Agent"],
-                    extra_http_headers={"Accept-Language": "en-US,en;q=0.9"},
+                    extra_http_headers={"Accept-Language": "ru-RU,ru;q=0.9,en;q=0.8"},
                 )
                 context.add_cookies([
-                    {"name": "iher-pref1", "value": "en-US", "domain": ".iherb.com", "path": "/"},
-                    {"name": "iher-pref2", "value": "US", "domain": ".iherb.com", "path": "/"},
+                    {"name": "iher-pref1", "value": "ru-RU", "domain": ".iherb.com", "path": "/"},
+                    {"name": "iher-pref2", "value": "RU", "domain": ".iherb.com", "path": "/"},
                 ])
                 page = context.new_page()
                 page.goto(url, wait_until="domcontentloaded", timeout=60000)
-                page.wait_for_timeout(3000)
+                if wait_selector:
+                    page.wait_for_selector(wait_selector, timeout=15000)
+                else:
+                    try:
+                        page.wait_for_load_state("networkidle", timeout=10000)
+                    except Exception:
+                        pass
+                    page.wait_for_timeout(5000)
                 html = page.content()
                 browser.close()
                 return html
-        except Exception as e:
-            logger.warning("Playwright fallback не сработал: %s", e)
+        except Exception:
             return None
 
     def get(self, url: str):  # noqa: C901
         url = self._normalize_www(url)
+        url = self._product_url_for_rubles(url)
         if not hasattr(self, "_ua_counter"):
             self._ua_counter = 0
         self._ua_counter += 1
@@ -167,8 +311,6 @@ class IHerbScraper:
                         ).result(timeout=70)
                         if html:
                             return _FakeResponse(html)
-                    else:
-                        logger.warning("Парсинг iHerb: 403, Playwright недоступен: %s", url)
                     if resp.status_code == 403:
                         raise requests.HTTPError(f"403 Forbidden for {url}")
                 resp.raise_for_status()
@@ -261,14 +403,23 @@ class IHerbScraper:
     def parse_product_page(self, url: str) -> ProductScraper | None:  # noqa: C901
         try:
             html = self.get(url).text
-        except requests.HTTPError as e:
-            logger.error("Парсинг iHerb: %s", e)
+        except requests.HTTPError:
             return None
 
         try:
-            return self._parse_product_page_html(url, html)
-        except Exception as e:
-            logger.exception("Парсинг iHerb: ошибка разбора страницы %s: %s", url, e)
+            product = self._parse_product_page_html(url, html)
+            if not product.description_right and product.description_left and PLAYWRIGHT_AVAILABLE:
+                fetch_url = self._normalize_www(url)
+                fetch_url = self._product_url_for_rubles(fetch_url)
+                html2 = _playwright_executor.submit(
+                    self._fetch_via_playwright,
+                    fetch_url,
+                    None,
+                ).result(timeout=70)
+                if html2:
+                    product = self._parse_product_page_html(url, html2)
+            return product
+        except Exception:
             return None
 
     def _parse_product_page_html(self, url: str, html: str) -> ProductScraper:
@@ -304,21 +455,62 @@ class IHerbScraper:
             if isinstance(offers, list) and offers:
                 offers = offers[0]
             if isinstance(offers, dict):
-                product.price = _safe_float(offers.get("price"))
                 product.stock = 0
+                raw_ld = offers.get("price")
+                p_ld = _safe_float(raw_ld)
+                if p_ld is not None:
+                    product.price = p_ld
 
-        left_col = soup.select_one(".content-frame .col-xs-24.col-md-14")
-        right_col = soup.select_one(".content-frame .col-xs-24.col-md-10")
+            desc_ld = prod.get("description")
+            if isinstance(desc_ld, str) and desc_ld.strip():
+                product.description_left = _strip_iherb_translation_disclaimer(
+                    _translate_en_ru(desc_ld.strip())
+                )
 
-        if left_col:
-            product.description_left = " ".join(left_col.stripped_strings)
-            if product.description_left:
-                product.description_left = _translate_en_ru(product.description_left)
-
-        if right_col:
-            product.description_right = " ".join(right_col.stripped_strings)
-            if product.description_right:
-                product.description_right = _translate_en_ru(product.description_right)
+        overview_block = soup.select_one("#overview .overview-info")
+        details_block = soup.select_one("#details .details-info")
+        supplement_block = soup.select_one("#product-supplement-facts .ingredient-info")
+        if overview_block or details_block or supplement_block:
+            left_json, right_json = _build_structured_description(
+                soup, overview_block, details_block, supplement_block
+            )
+            if left_json:
+                product.description_left = left_json
+            if right_json:
+                product.description_right = right_json
+        else:
+            overview = soup.select_one("#product-overview .content-frame, .product-overview .content-frame")
+            if not overview:
+                overview = soup.select_one(".content-wrapper .content-frame")
+            if not overview:
+                for frame in soup.select(".content-frame"):
+                    if frame.select_one(".col-xs-24.col-md-14") and frame.select_one(".col-xs-24.col-md-10"):
+                        overview = frame
+                        break
+            if not overview:
+                row = soup.select_one(".row .col-xs-24.col-md-14")
+                if row:
+                    row = row.find_parent(class_=lambda c: c and "row" in str(c))
+                    if row and row.select_one(".col-xs-24.col-md-10"):
+                        overview = row
+            left_col = overview.select_one(".col-xs-24.col-md-14") if overview else None
+            right_col = overview.select_one(".col-xs-24.col-md-10") if overview else None
+            if left_col:
+                dom_left = left_col.get_text(separator="\n", strip=True)
+                if dom_left:
+                    translated = _translate_en_ru(dom_left)
+                    left_sections = split_text_by_section_headers(translated)
+                    if not left_sections:
+                        left_sections = [{"title": "Описание", "content": [_strip_iherb_translation_disclaimer(translated)]}]
+                    product.description_left = json.dumps(left_sections, ensure_ascii=False)
+            if right_col:
+                dom_right = right_col.get_text(separator="\n", strip=True)
+                if dom_right:
+                    translated = _translate_en_ru(dom_right)
+                    right_sections = split_right_column_text(translated)
+                    if not right_sections:
+                        right_sections = [{"title": "Пищевая ценность", "content": [translated]}]
+                    product.description_right = json.dumps(right_sections, ensure_ascii=False)
 
         if product.category_path:
             product.category_path = [_translate_en_ru(c) for c in product.category_path]
@@ -327,11 +519,6 @@ class IHerbScraper:
             h1 = soup.find(["h1", "h2"], attrs={"itemprop": "name"}) or soup.find("h1")
             product.name = h1.get_text(strip=True) if h1 else product.name
 
-        if product.price is None:
-            price_el = soup.select_one("[itemprop='price'], meta[itemprop='price']")
-            if price_el:
-                val = price_el.get("content") or price_el.get_text(strip=True)
-                product.price = _safe_float(val)
         return product
 
     @staticmethod
@@ -397,11 +584,24 @@ class IHerbScraper:
         return trail or None
 
 
+def _normalize_price_string(s: str) -> str:
+    s = re.sub(r"[\s₽$€]", "", str(s).strip())
+    if "," in s and "." in s:
+        s = s.replace(",", "")
+    elif "," in s:
+        s = s.replace(",", ".")
+    return s
+
+
 def _safe_float(x) -> float | None:
     try:
         if x is None:
             return None
-        return float(str(x).strip().replace(",", "."))
+        s = str(x).strip()
+        if not s:
+            return None
+        s = _normalize_price_string(s)
+        return float(s)
     except Exception:
         return None
 
