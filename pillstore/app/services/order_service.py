@@ -26,13 +26,22 @@ class OrderService:
         self.product_crud = CrudProduct(session=session, model=Product)
         self.batch_crud = CrudBatch(session)
 
-    async def get_checkout_order(self, current_user) -> int:
+    async def get_checkout_order(
+        self,
+        current_user,
+        contact_phone: str | None = None,
+        personal_data_consent: bool = False,
+    ) -> int:
         cart_items = await self.cart_crud.get_cart_items(current_user.id)
         if not cart_items:
-
             raise CartNotFoundError(current_user.id)
 
-        order = Order(user_id=current_user.id, status="pending")
+        order = Order(
+            user_id=current_user.id,
+            status="pending",
+            contact_phone=(contact_phone or "").strip() or None,
+            personal_data_consent=personal_data_consent,
+        )
         total_amount = Decimal("0")
 
         for cart_item in cart_items:
@@ -45,11 +54,13 @@ class OrderService:
                 raise BusinessError(
                     "Заказ", f"Недостаточно товара на складе {product.name}"
                 )
+            unit_cost = Decimal(str(getattr(product, "cost", 0) or 0))
 
             order_item = OrderItem(
                 product_id=cart_item.product_id,
                 quantity=cart_item.quantity,
                 unit_price=product.price,
+                unit_cost=unit_cost,
                 total_price=product.price * cart_item.quantity,
             )
             order.items.append(order_item)
@@ -60,6 +71,61 @@ class OrderService:
         await self.cart_crud.delete_cart_by_user(current_user.id)
         await self.session.commit()
 
+        return order.id
+
+    async def create_order_from_checkout(
+        self,
+        current_user,
+        checkout_data: dict,
+    ) -> int:
+        items_data = checkout_data.get("items") or []
+        if not items_data:
+            raise CartNotFoundError(current_user.id)
+
+        order = Order(
+            user_id=current_user.id,
+            status="paid",
+            total_amount=Decimal(str(checkout_data.get("total", 0))),
+            contact_phone=(checkout_data.get("contact_phone") or "").strip() or None,
+            personal_data_consent=bool(checkout_data.get("personal_data_consent")),
+        )
+        self.session.add(order)
+        await self.session.flush()
+
+        for it in items_data:
+            product_id = it["product_id"]
+            quantity = int(it["quantity"])
+            unit_price = Decimal(str(it["unit_price"]))
+            unit_cost = Decimal(str(it.get("unit_cost") or 0))
+            product = await self.product_crud.get_by_id(product_id)
+            if not product or not product.is_active:
+                raise BusinessError("Заказ", f"Товар {product_id} недоступен")
+            if (product.stock or 0) < quantity:
+                raise BusinessError(
+                    "Заказ", f"Недостаточно товара на складе: {product.name}"
+                )
+            total_price = unit_price * quantity
+            order_item = OrderItem(
+                order_id=order.id,
+                product_id=product_id,
+                quantity=quantity,
+                unit_price=unit_price,
+                unit_cost=unit_cost,
+                total_price=total_price,
+            )
+            self.session.add(order_item)
+            await self.session.flush()
+            try:
+                await self.batch_crud.deduct_fifo(
+                    product_id, quantity, order.id, order_item.id
+                )
+            except ValueError as e:
+                raise BusinessError("Заказ", str(e)) from e
+
+        await self.session.flush()
+        await self.cart_crud.delete_cart_by_user(current_user.id)
+        await self.session.commit()
+        await self.session.refresh(order)
         return order.id
 
     async def confirm_payment(self, order_id: int, user_id: int) -> Order:
@@ -164,8 +230,9 @@ class OrderService:
         if order.user_id != current_user.id and current_user.role != "seller":
             raise BusinessError("Заказ", "Нет доступа")
 
+        unit_cost = Decimal(str(getattr(product, "cost", 0) or 0))
         await self.order_crud.add_or_update_item(
-            order, item_id, quantity, product.price
+            order, item_id, quantity, product.price, unit_cost=unit_cost
         )
         await self.session.flush()
         order_item = await self.order_crud.get_order_item_by_product(
