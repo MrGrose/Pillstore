@@ -223,6 +223,7 @@ async def order_receipt(
         "order/receipt.html",
         {
             "request": request,
+            "current_user": current_user,
             "order": order,
             "receipt_title": RECEIPT_TITLE,
             "receipt_meta": build_receipt_meta(order),

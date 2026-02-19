@@ -6,10 +6,12 @@
     <link rel="stylesheet" href="{{ url_for('static', path='/css/receipt.css') }}">
 </head>
 <body>
+    {% if current_user.role == 'seller' %}
     <div class="receipt-no-print">
         <a href="/orders/{{ order.id }}">← К заказу</a>
         <button type="button" class="receipt-print-btn" id="receipt-print-btn">Печать</button>
     </div>
+    {% endif %}
     <h1>{{ receipt_title }}</h1>
     <div class="receipt-meta">
         {% for label, value in receipt_meta %}
