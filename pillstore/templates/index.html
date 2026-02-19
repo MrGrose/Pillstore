@@ -27,7 +27,7 @@
             {% set active_id = (active_category_id|int) if active_category_id else None %}
             {% set active_cat = flat_tree|selectattr('id', 'equalto', active_id)|first if active_id else None %}
             <div class="col-12 mb-2">
-                <div class="category-line d-flex flex-wrap gap-1">
+                <div class="d-flex flex-wrap gap-1">
                     <a href="/products" class="btn btn-sm btn-primary {{ 'active-filter fw-bold' if not active_cat else '' }}">
                         <i class="fas me-1"></i>Все
                     </a>
@@ -37,13 +37,6 @@
                         {{ cat["name"] }}
                         </a>
                     {% endfor %}
-                    <div class="ms-auto">
-                        <select class="form-select form-select-sm w-auto select-max-140" onchange="window.location.href = this.value;">
-                            {% for size in pagination.pagination_sizes %}
-                                <option value="{{ pagination.page_size_urls[size] }}" {% if size == pagination.page_size %}selected{% endif %}>{{ size }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
                 </div>
             </div>
             {% if active_cat %}
@@ -99,20 +92,34 @@
                 {% endif %}
             {% endif %}
         </div>
+        <div class="row mb-3">
+            <div class="col-12 d-flex justify-content-end">
+                <div class="page-size">
+                    <label class="page-size-label"></label>
+                    <select class="form-select form-select-sm w-auto select-max-140" onchange="window.location.href = this.value;">
+                        {% for size in pagination.pagination_sizes %}
+                            <option value="{{ pagination.page_size_urls[size] }}" {% if size == pagination.page_size %}selected{% endif %}>{{ size }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+        </div>
         <div class="row row-cols-1 row-cols-md-3 row-cols-lg-4 g-4">
             {% for product in pagination.items  %}
                 <div class="col">
-                    <div class="card h-100 shadow-sm d-flex flex-column">
-                        <img src="{{ product.image_url or 'https://via.placeholder.com/250x250/eee/999?text=' + product.name }}" 
-                            class="card-img-top flex-shrink-0 img-cover-300" alt="{{ product.brand }}, {{ product.name }}">
+                    <div class="card h-100 shadow-sm d-flex flex-column card-product">
+                        <a href="{{ request.url_for('product_detail', product_id=product.id) }}" class="text-decoration-none">
+                            <img src="{{ product.image_url or 'https://via.placeholder.com/250x250/eee/999?text=' + product.name }}" 
+                                class="card-img-top flex-shrink-0 img-cover-300" alt="{{ product.brand or '' }}, {{ product.name }}">
+                        </a>
                         <div class="card-body flex-grow-1 d-flex flex-column">
                             <h6 class="card-title flex-grow-1">
-                                <a href="{{ url_for('product_detail', product_id=product.id) }}" class="text-decoration-none text-dark fw-bold">
+                                <a href="{{ request.url_for('product_detail', product_id=product.id) }}" class="text-decoration-none text-dark fw-bold product-name-wrap">
                                     {{ product.name }}
                                 </a>
                             </h6>
                             <div class="d-flex justify-content-between align-items-end mt-auto">
-                                <span class="h5 text-primary mb-0">id={{ product.id }} Цена:{{ "%.2f"|format(product.price) }} ₽</span>
+                                <span class="h5 text-primary mb-0">{{ "%.0f"|format(product.price) }} ₽</span>
                                 <div class="cart-controls" data-product-id="{{ product.id }}">
                                     {% set qty = product.cart_qty or 0 %}
                                     {% if qty == 0 %}

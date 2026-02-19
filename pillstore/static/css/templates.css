@@ -122,6 +122,21 @@
     max-width: 140px;
 }
 
+.page-size-control {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.25rem 0.5rem;
+    background: rgba(0, 0, 0, 0.03);
+    border-radius: 0.25rem;
+}
+.page-size-label {
+    font-size: 0.875rem;
+    color: var(--bs-secondary);
+    margin: 0;
+    white-space: nowrap;
+}
+
 .payment-form-full {
     width: 100%;
 }
@@ -149,4 +164,15 @@
 .hero-gradient {
     background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
     color: white;
+}
+
+.card-product {
+    transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+.card-product:hover {
+    box-shadow: 0 0.5rem 1.2rem rgba(0, 0, 0, 0.12) !important;
+    transform: translateY(-2px);
+}
+.card-product .card-title a:hover {
+    color: var(--bs-primary) !important;
 }
