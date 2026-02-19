@@ -36,6 +36,7 @@ class ProductCreate(BaseModel):
     price: Decimal = Field(
         ..., gt=0, description="Цена товара (больше 0)", decimal_places=2
     )
+    cost: Decimal = Field(0, ge=0, description="Себестоимость за единицу")
     url: str | None = None
     stock: int = Field(..., ge=0, description="Остаток на складе")
     category_id: list[int] = Field(default_factory=list)
@@ -138,6 +139,7 @@ class ProductUpdate(BaseModel):
     name_en: str = ""
     brand: str = ""
     price: float | None = None
+    cost: float | None = None
     stock: int | None = None
     url: str | None = None
     is_active: bool = True
