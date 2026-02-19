@@ -1,16 +1,14 @@
 from datetime import date, timedelta
 from decimal import Decimal
 
-from sqlalchemy import func, select
-
 from app.db_crud.base import CRUDBase
 from app.models.associations import product_categories
 from app.models.batches import ProductBatch
 from app.models.orders import Order, OrderItem
 from app.models.products import Product
+from sqlalchemy import func, select
 
-
-SALES_STATUSES = ("paid", "transit", "delivered")
+SALES_STATUSES = ("paid",)
 
 
 def _period_to_dates(period: str):
@@ -36,7 +34,9 @@ class CrudAdmin(CRUDBase):
 
     async def dashboard_stats(self) -> dict:
         total_revenue = await self.session.scalar(
-            select(func.coalesce(func.sum(Order.total_amount), 0)).select_from(Order)
+            select(func.coalesce(func.sum(Order.total_amount), 0))
+            .select_from(Order)
+            .where(Order.status.in_(SALES_STATUSES))
         )
         total_revenue = Decimal(str(total_revenue or 0))
 
@@ -44,13 +44,18 @@ class CrudAdmin(CRUDBase):
             OrderItem.quantity * func.coalesce(OrderItem.unit_cost, 0)
         )
         total_cost = await self.session.scalar(
-            select(func.coalesce(cost_expr, 0)).select_from(OrderItem)
+            select(func.coalesce(cost_expr, 0))
+            .select_from(OrderItem)
+            .join(Order, Order.id == OrderItem.order_id)
+            .where(Order.status.in_(SALES_STATUSES))
         )
         total_cost = Decimal(str(total_cost or 0))
         total_margin = total_revenue - total_cost
 
         total_orders = await self.session.scalar(
-            select(func.count()).select_from(Order)
+            select(func.count())
+            .select_from(Order)
+            .where(Order.status.in_(SALES_STATUSES))
         )
         total_products = await self.session.scalar(
             select(func.count()).select_from(Product)
