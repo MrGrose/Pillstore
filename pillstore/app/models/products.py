@@ -31,6 +31,7 @@ class Product(Base):
     name_en: Mapped[str] = mapped_column(String(255))
     brand: Mapped[str] = mapped_column(String(100))
     price: Mapped[float] = mapped_column(Numeric(10, 2))
+    cost: Mapped[float] = mapped_column(Numeric(10, 2), default=0, nullable=False)
     url: Mapped[str | None] = mapped_column(String(255), unique=True)
     image_url: Mapped[str | None] = mapped_column(String(255))
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
