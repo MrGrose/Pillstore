@@ -61,3 +61,13 @@ class ProfileResponse(BaseModel):
     )
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class LinkTelegramBody(BaseModel):
+    email: str = Field(..., description="Email пользователя")
+    telegram_id: int = Field(..., description="ID пользователя в Telegram")
+
+
+class MiniAppTokenResponse(BaseModel):
+    token: str = Field(..., description="Токен для ссылки Mini App")
+    expires_in: int = Field(..., description="Срок действия в секундах")
