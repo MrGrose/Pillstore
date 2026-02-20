@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_db
-from app.core.security import get_current_user, get_current_user_optional
+from app.core.security import get_current_user_any, get_current_user_optional
 from app.exceptions.handlers import (
     BusinessError,
     CartNotFoundError,
@@ -39,7 +39,7 @@ def _cart_to_api(cart_items: list, total: float, user_id: int) -> CartApi:
 @cart_router.get("/cart", response_model=CartApi)
 async def get_cart(
     db: AsyncSession = Depends(get_db),
-    current_user: UserModel = Depends(get_current_user),
+    current_user: UserModel = Depends(get_current_user_any),
 ):
     """Получить корзину текущего пользователя."""
     cart_service = CartService(db)
@@ -51,7 +51,7 @@ async def get_cart(
 async def add_item_to_cart(
     item_data: CartItemCreate,
     db: AsyncSession = Depends(get_db),
-    current_user: UserModel = Depends(get_current_user),
+    current_user: UserModel = Depends(get_current_user_any),
 ):
     """Добавить товар в корзину."""
     cart_service = CartService(db)
@@ -84,7 +84,7 @@ async def update_cart_item(
     item_id: int,
     update_data: CartItemUpdate,
     db: AsyncSession = Depends(get_db),
-    current_user: UserModel = Depends(get_current_user),
+    current_user: UserModel = Depends(get_current_user_any),
 ):
     """Изменить количество товара в корзине."""
     cart_service = CartService(db)
@@ -118,7 +118,7 @@ async def update_cart_item(
 async def remove_cart_item(
     item_id: int,
     db: AsyncSession = Depends(get_db),
-    current_user: UserModel = Depends(get_current_user),
+    current_user: UserModel = Depends(get_current_user_any),
 ):
     """Удалить позицию из корзины."""
     cart_service = CartService(db)
@@ -139,7 +139,7 @@ async def remove_cart_item(
 @cart_router.delete("/cart", response_model=CartActionResponse)
 async def clear_cart(
     db: AsyncSession = Depends(get_db),
-    current_user: UserModel = Depends(get_current_user),
+    current_user: UserModel = Depends(get_current_user_any),
 ):
     """Очистить корзину."""
     cart_service = CartService(db)

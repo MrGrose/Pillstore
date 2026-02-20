@@ -1,44 +1,25 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_db
-from app.core.security import get_current_user
+from app.core.security import get_current_user, get_current_user_any
 from app.exceptions.handlers import (
     BusinessError,
     CartNotFoundError,
     OrderNotFoundError,
 )
 from app.models.users import User as UserModel
-from app.schemas.order import OrderList, OrderSchema
+from app.schemas.order import (
+    CheckoutBody,
+    OrderActionResponse,
+    OrderCheckoutResponse,
+    OrderItemAddRequest,
+    OrderList,
+    OrderSchema,
+)
 from app.services.order_service import OrderService
 
 orders_router = APIRouter(prefix="/api/v2", tags=["API v2 Orders"])
-
-
-class OrderCheckoutResponse(BaseModel):
-    """Ответ эндпоинта оформления заказа (заказ, созданный из корзины)."""
-
-    order: OrderSchema = Field(..., description="Созданный заказ")
-    order_url: str = Field(..., description="URL для получения заказа")
-    payment_url: str = Field(..., description="URL для получения информации об оплате")
-
-
-class OrderItemAddRequest(BaseModel):
-    """Тело запроса для добавления позиции в существующий заказ."""
-
-    product_id: int = Field(..., ge=1, description="ID товара")
-    quantity: int = Field(1, ge=1, le=99, description="Количество")
-
-
-class OrderActionResponse(BaseModel):
-    """Общий ответ для эндпоинтов изменения заказа."""
-
-    message: str = Field(..., description="Результат операции")
-    order: OrderSchema | None = Field(None, description="Обновлённый заказ (если есть)")
-    order_deleted: bool = Field(
-        False, description="Истина, если заказ удалён (после возврата всех позиций)"
-    )
 
 
 @orders_router.get("/orders", response_model=OrderList)
@@ -47,12 +28,12 @@ async def api_get_user_orders(
     page_size: int = Query(10, ge=1, le=50),
     status_filter: str = Query(None),
     db: AsyncSession = Depends(get_db),
-    current_user: UserModel = Depends(get_current_user),
+    current_user: UserModel = Depends(get_current_user_any),
     all_orders: bool = Query(
         False, description="Только для seller: показать заказы всех пользователей"
     ),
 ):
-    """Список заказов с пагинацией. По умолчанию — свои; продавец может запросить все (all_orders=true)."""
+    """Список заказов пользователя (те же данные, что в личном кабинете на сайте и в Mini App)."""
     order_service = OrderService(db)
 
     if all_orders and current_user.role != "seller":
@@ -78,14 +59,24 @@ async def api_get_user_orders(
     status_code=status.HTTP_201_CREATED,
 )
 async def api_checkout_order(
+    body: CheckoutBody | None = None,
     db: AsyncSession = Depends(get_db),
-    current_user: UserModel = Depends(get_current_user),
+    current_user: UserModel = Depends(get_current_user_any),
 ):
-    """Создать заказ из корзины (оформление заказа)."""
+    """Создать заказ из корзины (оформление заказа). Требуется согласие на обработку персональных данных."""
+    consent = body.personal_data_consent if body else False
+    if not consent:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Требуется согласие на обработку персональных данных",
+        )
+    contact_phone = (body.contact_phone or "").strip() if body else None
     order_service = OrderService(db)
 
     try:
-        order_id = await order_service.get_checkout_order(current_user)
+        order_id = await order_service.get_checkout_order(
+            current_user, contact_phone=contact_phone or None, personal_data_consent=True
+        )
     except CartNotFoundError:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

@@ -5,9 +5,10 @@ from app.exceptions.handlers import ProductNotFoundError
 from app.models.categories import Category
 from app.models.products import Product
 from app.models.users import User as UserModel
-from app.schemas.product import (ProductCreateAPI, ProductImportList,
-                                 ProductListResponse, ProductSchema,
-                                 ProductStockResponse, ProductUpdateAPI)
+from app.schemas.product import (ProductCreateAPI, ProductDetailSchema,
+                                 ProductImportList, ProductListResponse,
+                                 ProductSchema, ProductStockResponse,
+                                 ProductUpdateAPI)
 from app.services.product_service import ProductService
 from app.utils.utils import save_image_from_url
 from fastapi import (APIRouter, Depends, File, HTTPException, Query,
@@ -47,17 +48,36 @@ async def api_get_products_list(
     )
 
 
-@product_router.get("/products/{product_id}", response_model=ProductSchema)
+@product_router.get("/products/{product_id}", response_model=ProductDetailSchema)
 async def api_get_product(
     product_id: int,
     db: AsyncSession = Depends(get_db),
     current_user: UserModel | None = Depends(get_current_user_optional),
 ):
-    """Получить один товар по id."""
+    """Получить один товар по id (с описанием)."""
     product_svc = ProductService(db)
     try:
         product = await product_svc.get_product_detail(product_id, current_user)
-        return product
+        raw_desc = getattr(product, "description", None)
+        if isinstance(raw_desc, dict):
+            desc_parts = []
+            for title, blocks in raw_desc.items():
+                if isinstance(blocks, list):
+                    desc_parts.append(title + "\n" + "\n".join(str(b) for b in blocks))
+                else:
+                    desc_parts.append(str(blocks))
+            description = "\n\n".join(desc_parts) if desc_parts else None
+        else:
+            description = str(raw_desc) if raw_desc is not None else None
+        return ProductDetailSchema(
+            id=product.id,
+            name=product.name,
+            brand=product.brand or "",
+            price=product.price,
+            image_url=product.image_url or "",
+            stock=product.stock,
+            description=description,
+        )
     except ProductNotFoundError:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
