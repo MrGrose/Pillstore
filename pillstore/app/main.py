@@ -19,7 +19,7 @@ from app.core.config import settings
 from app.core.init import lifespan
 from app.core.logger import LoggingMiddleware
 from app.exceptions.handlers import setup_html_error_handlers
-from app.routers import admin, auth, errors, orders, products, profile, scraper
+from app.routers import admin, auth, errors, mini, orders, products, profile, scraper
 
 tags_metadata = [
     {"name": "Health"},
@@ -48,10 +48,11 @@ app = FastAPI(
 )
 
 setup_html_error_handlers(app)
-app.add_middleware(
-    TrustedHostMiddleware,
-    allowed_hosts=settings.ALLOWED_HOSTS,
-)
+if settings.ENV == "production":
+    app.add_middleware(
+        TrustedHostMiddleware,
+        allowed_hosts=settings.ALLOWED_HOSTS,
+    )
 app.add_middleware(
     SessionMiddleware,
     secret_key=settings.SECRET_KEY,
@@ -89,6 +90,7 @@ app.include_router(orders.router, tags=["Orders"])
 app.include_router(admin.router, prefix="/admin", tags=["Admin"])
 app.include_router(profile.router, prefix="/profile", tags=["Profile"])
 app.include_router(errors.router, tags=["Errors"])
+app.include_router(mini.router)
 app.include_router(product_router)
 app.include_router(categories_router)
 app.include_router(auth_router)
