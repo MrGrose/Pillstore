@@ -209,3 +209,10 @@ class UserService:
         if not user:
             raise ValueError("Пользователь не найден")
         return user
+
+    async def link_telegram(self, user_id: int, telegram_id: int) -> None:
+        await self.user_crud.clear_telegram_id(telegram_id)
+        user = await self.user_crud.get_by_id(user_id)
+        if not user:
+            raise UserNotFoundError(user_id)
+        await self.user_crud.update(user, {"telegram_id": telegram_id})

@@ -36,48 +36,31 @@ class OrderService:
         if not cart_items:
             raise CartNotFoundError(current_user.id)
 
-        order = Order(
-            user_id=current_user.id,
-            status="pending",
-            contact_phone=(contact_phone or "").strip() or None,
-            personal_data_consent=personal_data_consent,
-        )
-        total_amount = Decimal("0")
+        items_data = []
+        total = Decimal("0")
+        for item in cart_items:
+            if not item.product or not item.product.is_active:
+                continue
+            unit_cost = getattr(item.product, "cost", None) or 0
+            items_data.append({
+                "product_id": item.product_id,
+                "name": item.product.name,
+                "quantity": item.quantity,
+                "unit_price": float(item.product.price),
+                "unit_cost": float(unit_cost),
+            })
+            total += item.quantity * item.product.price
 
-        for cart_item in cart_items:
-            product = cart_item.product
-            if not product or not product.is_active:
-                raise BusinessError(
-                    "Заказ", f"Продукт {cart_item.product_id} не доступен"
-                )
-            reserved = await self.order_crud.get_pending_reserved(
-                cart_item.product_id
-            )
-            available = (product.stock or 0) - reserved
-            if available < cart_item.quantity:
-                raise BusinessError(
-                    "Заказ",
-                    f"Недостаточно товара на складе {product.name} "
-                    f"(доступно с учётом резерва: {available})",
-                )
-            unit_cost = Decimal(str(getattr(product, "cost", 0) or 0))
+        if not items_data:
+            raise CartNotFoundError(current_user.id)
 
-            order_item = OrderItem(
-                product_id=cart_item.product_id,
-                quantity=cart_item.quantity,
-                unit_price=product.price,
-                unit_cost=unit_cost,
-                total_price=product.price * cart_item.quantity,
-            )
-            order.items.append(order_item)
-            total_amount += cart_item.quantity * product.price
-
-        order.total_amount = total_amount
-        self.session.add(order)
-        await self.cart_crud.delete_cart_by_user(current_user.id)
-        await self.session.commit()
-
-        return order.id
+        checkout_data = {
+            "items": items_data,
+            "total": float(total),
+            "contact_phone": (contact_phone or "").strip() or None,
+            "personal_data_consent": bool(personal_data_consent),
+        }
+        return await self.create_order_from_checkout(current_user, checkout_data)
 
     async def create_order_from_checkout(
         self,

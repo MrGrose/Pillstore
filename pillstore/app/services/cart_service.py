@@ -38,8 +38,10 @@ class CartService:
         total_qty = current_qty + quantity
 
         if total_qty > available:
+            can_add = max(0, available - current_qty)
             raise BusinessError(
-                "Корзина", f"Макс еще с учётом резерва: {available - current_qty}"
+                "Корзина",
+                f"Недостаточно товара. Можно добавить ещё: {can_add} шт.",
             )
 
         await self.crud.add_or_update(user.id, product_id, total_qty)
@@ -73,7 +75,7 @@ class CartService:
         if available < quantity:
             raise BusinessError(
                 "Корзина",
-                f"Недостаточно на складе с учётом резерва. Доступно: {available}",
+                f"Недостаточно товара на складе. Доступно: {available} шт.",
             )
         cart_item.quantity = quantity
         await self.session.commit()
