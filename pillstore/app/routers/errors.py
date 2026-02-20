@@ -6,7 +6,7 @@ from fastapi.responses import HTMLResponse
 from app.core.config import templates
 from app.core.security import get_current_user_optional
 from app.models.users import User
-from app.services.cart import get_cart_count
+from app.services.cart import get_cart_count, get_cart_count_optional
 
 router = APIRouter()
 
@@ -15,7 +15,7 @@ router = APIRouter()
 async def privacy_policy(
     request: Request,
     current_user: User | None = Depends(get_current_user_optional),
-    cart_count: int = Depends(get_cart_count),
+    cart_count: int = Depends(get_cart_count_optional),
 ):
     return templates.TemplateResponse(
         "privacy.html",
