@@ -17,6 +17,10 @@ class ProductSchema(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class ProductDetailSchema(ProductSchema):
+    description: str | None = None
+
+
 class ProductCreate(BaseModel):
     name: str = Field(
         ...,
