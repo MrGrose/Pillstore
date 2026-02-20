@@ -44,6 +44,7 @@ class Settings(BaseSettings):
     POSTGRES_USER: str = "postgres"
     POSTGRES_PASSWORD: str = "postgres"
     POSTGRES_DB: str = "pillstore_db"
+    TELEGRAM_BOT_TOKEN: str = ""
 
     @field_validator("ALLOWED_HOSTS", "ALLOWED_ORIGINS", mode="before")
     @classmethod
