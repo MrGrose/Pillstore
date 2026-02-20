@@ -1,5 +1,3 @@
-"""Партии товара (по срокам годности) и списания по заказам (FIFO)."""
-
 from __future__ import annotations
 
 from datetime import date, datetime
