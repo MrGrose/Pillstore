@@ -68,9 +68,11 @@ class CrudProduct(CRUDBase):
 
         if is_active is not None:
             stmt = stmt.where(self.model.is_active == is_active)
+            if is_active:
+                stmt = stmt.where(self._available_gt_zero())
         else:
             stmt = stmt.where(self.model.is_active.is_(True)).where(
-                self.model.stock > 0
+                self._available_gt_zero()
             )
 
         if category_id:
@@ -248,26 +250,38 @@ class CrudProduct(CRUDBase):
         )
         return result.first()
 
+    def _reserved_subq(self):
+        return (
+            select(func.coalesce(func.sum(OrderItem.quantity), 0))
+            .select_from(OrderItem)
+            .join(Order, Order.id == OrderItem.order_id)
+            .where(
+                OrderItem.product_id == self.model.id,
+                Order.status == "pending",
+            )
+            .correlate(self.model)
+            .scalar_subquery()
+        )
+
+    def _available_gt_zero(self):
+        return (self.model.stock - self._reserved_subq()) > 0
+
     async def get_products_paginated(
         self, is_active: bool, page: int = 1, page_size: int = 20
     ) -> tuple[list[Product], int]:
         total = await self.get_products_count(is_active)
-        stmt = (
-            select(self.model)
-            .where(self.model.is_active == is_active)
-            .order_by(self.model.id.asc())
-            .offset((page - 1) * page_size)
-            .limit(page_size)
-        )
+        stmt = select(self.model).where(self.model.is_active == is_active)
+        if is_active:
+            stmt = stmt.where(self._available_gt_zero())
+        stmt = stmt.order_by(self.model.id.asc()).offset((page - 1) * page_size).limit(page_size)
         items = list((await self.session.scalars(stmt)).all())
         return items, total
 
     async def get_products_count(self, is_active: bool) -> int:
-        result = await self.session.scalar(
-            select(func.count())
-            .select_from(self.model)
-            .where(self.model.is_active == is_active)
-        )
+        stmt = select(func.count()).select_from(self.model).where(self.model.is_active == is_active)
+        if is_active:
+            stmt = stmt.where(self._available_gt_zero())
+        result = await self.session.scalar(stmt)
         return result or 0
 
     async def inactive_product(self, product_id: int) -> Product:

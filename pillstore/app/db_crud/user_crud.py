@@ -30,3 +30,19 @@ class CrudUser(CRUDBase):
             )
         )
         return result.first()
+
+    async def get_user_by_telegram_id(self, telegram_id: int) -> User | None:
+        result = await self.session.scalars(
+            select(self.model).where(
+                self.model.telegram_id == telegram_id,
+                self.model.is_active.is_(True),
+            )
+        )
+        return result.first()
+
+    async def clear_telegram_id(self, telegram_id: int) -> None:
+        from sqlalchemy import update
+        await self.session.execute(
+            update(self.model).where(self.model.telegram_id == telegram_id).values(telegram_id=None)
+        )
+        await self.session.commit()
