@@ -1,0 +1,663 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+    <title>PillStore</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        * { box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; padding: 12px; background: var(--tg-theme-bg-color, #fff); color: var(--tg-theme-text-color, #000); }
+        .nav { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+        .nav a { padding: 10px 16px; background: var(--tg-theme-button-color, #2481cc); color: var(--tg-theme-button-text-color, #fff); text-decoration: none; border-radius: 8px; }
+        .nav a.active { opacity: 0.9; }
+        .card { border: 1px solid var(--tg-theme-hint-color, #ccc); border-radius: 12px; padding: 12px; margin-bottom: 12px; display: flex; gap: 12px; align-items: flex-start; cursor: pointer; }
+        .card .card-img { width: 80px; height: 80px; object-fit: cover; border-radius: 8px; flex-shrink: 0; background: #eee; }
+        .card .card-body { flex: 1; min-width: 0; }
+        .card h3 { margin: 0 0 4px; font-size: 1rem; }
+        .card .price { font-weight: bold; color: var(--tg-theme-link-color, #2481cc); margin: 4px 0; }
+        .card .actions { display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
+        .btn { padding: 8px 14px; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; }
+        .btn-primary { background: var(--tg-theme-button-color, #2481cc); color: var(--tg-theme-button-text-color, #fff); }
+        .btn-secondary { background: var(--tg-theme-secondary-bg-color, #eee); color: var(--tg-theme-text-color, #000); }
+        .btn-small { padding: 6px 10px; font-size: 12px; }
+        .page-nav { display: flex; justify-content: center; align-items: center; gap: 8px; margin: 16px 0; flex-wrap: wrap; }
+        .page-nav button { padding: 8px 12px; }
+        .page-nav .page-info { min-width: 60px; text-align: center; }
+        .cart-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #eee; flex-wrap: wrap; gap: 8px; }
+        .cart-item > div:first-child { flex: 1; min-width: 0; }
+        .cart-item .qty { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+        .cart-item .qty-wrap { display: inline-flex; align-items: center; border: 1px solid #ccc; border-radius: 6px; background: #f5f5f5; }
+        .cart-item .qty-wrap .btn-qty { width: 34px; height: 34px; padding: 0; border: none; border-right: 1px solid #ccc; background: #eee; color: #333; font-size: 18px; line-height: 1; cursor: pointer; }
+        .cart-item .qty-wrap .btn-qty:last-of-type { border-right: none; border-left: 1px solid #ccc; }
+        .cart-item .qty-wrap .cart-qty-num { min-width: 28px; text-align: center; font-weight: bold; font-size: 14px; }
+        .card .cart-controls { display: flex; align-items: center; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
+        .card .cart-controls .qty-wrap { display: inline-flex; align-items: center; border: 1px solid #ccc; border-radius: 6px; background: #f5f5f5; }
+        .card .cart-controls .btn-qty { width: 30px; height: 30px; padding: 0; border: none; border-right: 1px solid #ccc; background: #eee; color: #333; font-size: 16px; line-height: 1; cursor: pointer; }
+        .card .cart-controls .btn-qty:last-of-type { border-right: none; border-left: 1px solid #ccc; }
+        .card .cart-controls .js-qty { min-width: 24px; text-align: center; font-weight: bold; font-size: 14px; }
+        .total { font-size: 1.2rem; font-weight: bold; margin: 16px 0; }
+        .empty { padding: 24px; text-align: center; color: var(--tg-theme-hint-color, #666); }
+        .checkout-field { margin: 12px 0; }
+        .checkout-field label { display: block; margin-bottom: 4px; font-weight: 500; }
+        .checkout-field input { width: 100%; max-width: 280px; padding: 10px 12px; border: 1px solid #ccc; border-radius: 8px; font-size: 16px; }
+        #checkout-consent { margin: 16px 0; }
+        #checkout-consent label { display: flex; align-items: flex-start; gap: 8px; cursor: pointer; }
+        .card-img { cursor: pointer; }
+        .product-detail .product-img { width: 100%; max-height: 200px; object-fit: contain; border-radius: 8px; background: #eee; margin-bottom: 12px; }
+        .product-detail .product-desc { white-space: pre-wrap; margin: 12px 0; line-height: 1.5; }
+        .product-detail .back-link { display: inline-block; margin-bottom: 12px; color: var(--tg-theme-link-color); }
+        .product-detail .product-actions { margin-top: 16px; }
+        .product-detail .product-actions .qty-wrap { display: inline-flex; align-items: center; border: 1px solid #ccc; border-radius: 6px; background: #f5f5f5; }
+        .product-detail .product-actions .btn-qty { width: 36px; height: 36px; padding: 0; border: none; border-right: 1px solid #ccc; background: #eee; color: #333; font-size: 18px; cursor: pointer; }
+        .product-detail .product-actions .btn-qty:last-of-type { border-right: none; border-left: 1px solid #ccc; }
+        .product-detail .product-actions .js-qty { min-width: 28px; text-align: center; font-weight: bold; }
+        .order-card { border: 1px solid #eee; border-radius: 12px; padding: 12px; margin-bottom: 12px; }
+        .order-card h3 { margin: 0 0 8px; font-size: 1rem; }
+        .order-card .order-meta { color: var(--tg-theme-hint-color, #666); font-size: 14px; margin-bottom: 8px; }
+        .order-card .order-total { font-weight: bold; color: var(--tg-theme-link-color, #2481cc); }
+        .order-card .order-items { margin-top: 8px; padding-top: 8px; border-top: 1px solid #eee; font-size: 14px; }
+        .order-sync-hint { color: var(--tg-theme-hint-color, #666); font-size: 14px; margin: -8px 0 12px 0; }
+        #toast-container { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 9999; display: flex; flex-direction: column; gap: 8px; pointer-events: none; max-width: 90%; }
+        .toast { padding: 12px 18px; border-radius: 10px; background: var(--tg-theme-secondary-bg-color, #333); color: var(--tg-theme-text-color, #fff); font-size: 14px; box-shadow: 0 4px 12px rgba(0,0,0,0.2); animation: toast-in 0.25s ease; pointer-events: auto; }
+        .toast.toast-success { background: #2e7d32; }
+        .toast.toast-error { background: #c62828; }
+        @keyframes toast-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+</head>
+<body>
+    <div id="toast-container" aria-live="polite"></div>
+    <div id="app">
+        <div class="nav">
+            <a href="#catalog" id="nav-catalog">Каталог</a>
+            <a href="#cart" id="nav-cart">Корзина <span id="cart-badge"></span></a>
+            <a href="#orders" id="nav-orders">Заказы</a>
+        </div>
+
+        <div id="view-catalog" class="view">
+            <div id="catalog-list"></div>
+            <div class="page-nav">
+                <button type="button" class="btn btn-secondary" id="page-first">В начало</button>
+                <button type="button" class="btn btn-secondary" id="page-prev">← Пред</button>
+                <span class="page-info" id="page-info">1 / 1</span>
+                <button type="button" class="btn btn-secondary" id="page-next">След →</button>
+                <button type="button" class="btn btn-secondary" id="page-last">В конец</button>
+            </div>
+        </div>
+
+        <div id="view-product" class="view product-detail" style="display:none">
+            <a href="#" class="back-link" id="product-back">← В каталог</a>
+            <div id="product-content"></div>
+        </div>
+
+        <div id="view-cart" class="view" style="display:none">
+            <div id="cart-list"></div>
+            <div class="total" id="cart-total"></div>
+            <div>
+                <button type="button" class="btn btn-secondary" id="cart-clear">Очистить корзину</button>
+                <button type="button" class="btn btn-primary" id="cart-checkout" style="margin-left:8px">Оформить заказ</button>
+            </div>
+        </div>
+
+        <div id="view-orders" class="view" style="display:none">
+            <h2>Мои заказы</h2>
+            <p class="order-sync-hint">Заказы с сайта и из приложения отображаются здесь.</p>
+            <div id="orders-list"></div>
+            <div class="page-nav" id="orders-pagination" style="display:none">
+                <button type="button" class="btn btn-secondary" id="orders-prev">← Пред</button>
+                <span class="page-info" id="orders-page-info">1 / 1</span>
+                <button type="button" class="btn btn-secondary" id="orders-next">След →</button>
+            </div>
+        </div>
+
+        <div id="view-checkout" class="view" style="display:none">
+            <h2>Оформление заказа</h2>
+            <p>Укажите контактный телефон для связи.</p>
+            <div class="checkout-field">
+                <label for="checkout-phone">Телефон *</label>
+                <input type="tel" id="checkout-phone" placeholder="+7 999 123-45-67" maxlength="20" autocomplete="tel">
+            </div>
+            <div id="checkout-consent">
+                <label>
+                    <input type="checkbox" id="consent-checkbox">
+                    <span>Даю согласие на обработку персональных данных в соответствии с <a href="#" id="privacy-link">политикой конфиденциальности</a></span>
+                </label>
+            </div>
+            <button type="button" class="btn btn-primary" id="checkout-submit">Подтвердить и оформить</button>
+        </div>
+    </div>
+
+    <script>
+    (function() {
+        const API = '/api/v2';
+        let initData = '';
+        if (typeof Telegram !== 'undefined' && Telegram.WebApp && Telegram.WebApp.initData) {
+            initData = Telegram.WebApp.initData;
+            try {
+                Telegram.WebApp.ready();
+                Telegram.WebApp.expand();
+            } catch (e) { /* WebAppMethodUnsupported в браузере или старом клиенте */ }
+        }
+        function isInTelegramWebApp() { return !!initData; }
+        // Токен из ссылки ?t= (открытие в браузере без initData)
+        let miniAppToken = '';
+        try {
+            const params = new URLSearchParams(window.location.search);
+            const t = params.get('t');
+            if (t) {
+                miniAppToken = t;
+                sessionStorage.setItem('mini_app_token', t);
+            } else {
+                miniAppToken = sessionStorage.getItem('mini_app_token') || '';
+            }
+        } catch (e) {}
+
+        function headers() {
+            const h = { 'Content-Type': 'application/json' };
+            if (initData) h['X-Telegram-Init-Data'] = initData;
+            if (miniAppToken) h['X-Mini-App-Token'] = miniAppToken;
+            return h;
+        }
+
+        /** Показать своё уведомление вместо alert (только Mini App). */
+        function showToast(message, type) {
+            type = type || 'info';
+            const container = document.getElementById('toast-container');
+            const el = document.createElement('div');
+            el.className = 'toast toast-' + (type === 'success' ? 'success' : type === 'error' ? 'error' : '');
+            el.textContent = message;
+            container.appendChild(el);
+            setTimeout(function() { el.remove(); }, 3500);
+        }
+
+        async function api(path, opts = {}) {
+            const r = await fetch(API + path, { ...opts, headers: { ...headers(), ...(opts.headers || {}) } });
+            if (r.status === 401) throw new Error('Привяжите аккаунт в боте: /start и введите email.');
+            if (!r.ok) {
+                const text = await r.text().catch(() => r.statusText);
+                let msg = text;
+                try { const j = JSON.parse(text); if (j && typeof j.detail === 'string') msg = j.detail; } catch (e) {}
+                throw new Error(msg);
+            }
+            return r.status === 204 ? null : r.json();
+        }
+
+        function imgUrl(url) {
+            if (!url) return '';
+            if (url.startsWith('http')) return url;
+            return url.startsWith('/') ? url : '/' + url;
+        }
+
+        let catalogPage = 1;
+        let catalogTotalPages = 1;
+        let catalogTotal = 0;
+        const PAGE_SIZE = 5;
+
+        async function loadProducts(page) {
+            const data = await api('/products?page=' + page + '&page_size=' + PAGE_SIZE);
+            catalogPage = data.page || 1;
+            catalogTotal = data.total || 0;
+            catalogTotalPages = Math.max(1, Math.ceil(catalogTotal / PAGE_SIZE));
+            return data.items || [];
+        }
+
+        async function loadProduct(id) {
+            return await api('/products/' + id);
+        }
+
+        async function loadFavorites() {
+            try {
+                const data = await api('/favorites');
+                return new Set(data.product_ids || []);
+            } catch {
+                return new Set();
+            }
+        }
+
+        async function loadCart() {
+            try {
+                return await api('/cart');
+            } catch {
+                return null;
+            }
+        }
+
+        let ordersPage = 1;
+        let ordersTotalPages = 1;
+        let ordersTotal = 0;
+        const ORDERS_PAGE_SIZE = 10;
+
+        async function loadOrders(page) {
+            const data = await api('/orders?page=' + page + '&page_size=' + ORDERS_PAGE_SIZE);
+            return data;
+        }
+
+        function orderStatusLabel(s) {
+            const map = { pending: 'Ожидает', paid: 'Оплачено', completed: 'Завершён', cancelled: 'Отменён' };
+            return map[s] || s;
+        }
+
+        function formatOrderDate(createdAt) {
+            if (!createdAt) return '';
+            const d = new Date(createdAt);
+            return d.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+        }
+
+        function showView(name) {
+            document.querySelectorAll('.view').forEach(el => el.style.display = 'none');
+            const el = document.getElementById('view-' + name);
+            if (el) el.style.display = 'block';
+            document.querySelectorAll('.nav a').forEach(a => a.classList.remove('active'));
+            const nav = document.getElementById('nav-' + name);
+            if (nav) nav.classList.add('active');
+        }
+
+        function escapeHtml(s) {
+            if (s == null) return '';
+            const div = document.createElement('div');
+            div.textContent = s;
+            return div.innerHTML;
+        }
+
+        function renderCatalog(items, favIds, cart) {
+            const cartByProduct = {};
+            if (cart && cart.items) {
+                cart.items.forEach(it => {
+                    const pid = it.product && (it.product.id ?? it.product_id);
+                    if (pid != null) cartByProduct[pid] = { itemId: it.id ?? it.item_id, qty: it.quantity ?? 0 };
+                });
+            }
+            const list = document.getElementById('catalog-list');
+            list.innerHTML = items.map(p => {
+                const inFav = favIds.has(p.id);
+                const cartInfo = cartByProduct[p.id];
+                const qty = cartInfo ? cartInfo.qty : 0;
+                const src = imgUrl(p.image_url);
+                const img = src ? '<img class="card-img" src="' + escapeHtml(src) + '" alt="">' : '<div class="card-img"></div>';
+                let controlsHtml;
+                if (qty === 0) {
+                    controlsHtml = '<button type="button" class="btn btn-primary btn-small js-add-to-cart" data-id="' + p.id + '">В корзину</button>';
+                } else {
+                    controlsHtml = '<div class="qty-wrap">' +
+                        '<button type="button" class="btn-qty js-decrease" data-item-id="' + (cartInfo.itemId || '') + '">−</button>' +
+                        '<span class="js-qty">' + qty + '</span>' +
+                        '<button type="button" class="btn-qty js-increase" data-item-id="' + (cartInfo.itemId || '') + '">+</button>' +
+                        '</div>';
+                }
+                return '<div class="card" data-id="' + p.id + '" data-action="card">' +
+                    img +
+                    '<div class="card-body">' +
+                    '<h3>' + escapeHtml(p.name) + '</h3>' +
+                    (p.brand ? '<p style="margin:0;color:var(--tg-theme-hint-color);font-size:14px">' + escapeHtml(p.brand) + '</p>' : '') +
+                    '<p class="price">' + p.price + ' ₽</p>' +
+                    '<div class="cart-controls" data-product-id="' + p.id + '">' + controlsHtml +
+                    '<button type="button" class="btn btn-secondary btn-small btn-fav" data-id="' + p.id + '">' + (inFav ? '💔' : '❤') + '</button>' +
+                    '</div></div></div>';
+            }).join('') || '<div class="empty">Нет товаров</div>';
+
+            document.getElementById('page-info').textContent = catalogPage + ' / ' + catalogTotalPages;
+            document.getElementById('page-prev').disabled = catalogPage <= 1;
+            document.getElementById('page-next').disabled = catalogPage >= catalogTotalPages;
+            document.getElementById('page-first').disabled = catalogPage <= 1;
+            document.getElementById('page-last').disabled = catalogPage >= catalogTotalPages;
+
+            list.querySelectorAll('.card[data-action="card"]').forEach(card => {
+                card.addEventListener('click', function(e) {
+                    if (e.target.closest('.cart-controls')) return;
+                    showProduct(parseInt(this.dataset.id, 10));
+                });
+            });
+            list.querySelectorAll('.js-add-to-cart').forEach(btn => {
+                btn.addEventListener('click', e => { e.stopPropagation(); addToCart(parseInt(btn.dataset.id, 10)); });
+            });
+            list.querySelectorAll('.cart-controls .js-decrease').forEach(btn => {
+                btn.addEventListener('click', async e => {
+                    e.stopPropagation();
+                    const itemId = parseInt(btn.dataset.itemId, 10);
+                    const span = btn.parentElement.querySelector('.js-qty');
+                    const cur = parseInt(span.textContent, 10) || 0;
+                    if (cur <= 1) {
+                        try { await api('/cart/items/' + itemId, { method: 'DELETE' }); updateCartBadge(); refreshCatalog(); } catch (err) { showToast(err.message, 'error'); }
+                    } else {
+                        try { await api('/cart/items/' + itemId, { method: 'PUT', body: JSON.stringify({ quantity: cur - 1 }) }); span.textContent = cur - 1; updateCartBadge(); } catch (err) { showToast(err.message, 'error'); }
+                    }
+                });
+            });
+            list.querySelectorAll('.cart-controls .js-increase').forEach(btn => {
+                btn.addEventListener('click', async e => {
+                    e.stopPropagation();
+                    const itemId = parseInt(btn.dataset.itemId, 10);
+                    const span = btn.parentElement.querySelector('.js-qty');
+                    const cur = parseInt(span.textContent, 10) || 0;
+                    try { await api('/cart/items/' + itemId, { method: 'PUT', body: JSON.stringify({ quantity: cur + 1 }) }); span.textContent = cur + 1; updateCartBadge(); } catch (err) { showToast(err.message, 'error'); }
+                });
+            });
+            list.querySelectorAll('.btn-fav').forEach(btn => {
+                btn.addEventListener('click', e => { e.stopPropagation(); toggleFav(parseInt(btn.dataset.id, 10)); });
+            });
+        }
+
+        async function showProduct(id) {
+            location.hash = 'product/' + id;
+            showView('product');
+            const block = document.getElementById('product-content');
+            block.innerHTML = '<div class="empty">Загрузка…</div>';
+            try {
+                const [p, cart] = await Promise.all([loadProduct(id), loadCart()]);
+                const cartItem = cart && cart.items && cart.items.find(it => (it.product && (it.product.id === p.id || it.product_id === p.id)));
+                const qty = cartItem ? (cartItem.quantity || 0) : 0;
+                const itemId = cartItem ? (cartItem.id ?? cartItem.item_id) : null;
+                const src = imgUrl(p.image_url);
+                const img = src ? '<img class="product-img" src="' + escapeHtml(src) + '" alt="" data-action="open-product">' : '';
+                let cartControlsHtml;
+                if (qty === 0) {
+                    cartControlsHtml = '<button type="button" class="btn btn-primary" id="product-add-cart">В корзину</button>';
+                } else {
+                    cartControlsHtml = '<div class="cart-controls" data-product-id="' + p.id + '">' +
+                        '<div class="qty-wrap">' +
+                        '<button type="button" class="btn-qty product-dec" data-item-id="' + (itemId || '') + '">−</button>' +
+                        '<span class="js-qty">' + qty + '</span>' +
+                        '<button type="button" class="btn-qty product-inc" data-item-id="' + (itemId || '') + '">+</button>' +
+                        '</div></div>';
+                }
+                block.innerHTML =
+                    img +
+                    '<h2>' + escapeHtml(p.name) + '</h2>' +
+                    (p.brand ? '<p style="color:var(--tg-theme-hint-color)">' + escapeHtml(p.brand) + '</p>' : '') +
+                    '<p class="price">' + p.price + ' ₽</p>' +
+                    (p.description ? '<div class="product-desc">' + escapeHtml(p.description) + '</div>' : '') +
+                    '<div class="product-actions">' + cartControlsHtml + '</div>';
+                if (qty === 0) {
+                    document.getElementById('product-add-cart').addEventListener('click', async () => {
+                        await addToCart(p.id);
+                        showProduct(p.id);
+                    });
+                } else {
+                    const span = block.querySelector('.js-qty');
+                    block.querySelector('.product-dec').addEventListener('click', async () => {
+                        const cur = parseInt(span.textContent, 10) || 0;
+                        if (cur <= 1) {
+                            try { await api('/cart/items/' + itemId, { method: 'DELETE' }); updateCartBadge(); showProduct(p.id); } catch (err) { showToast(err.message, 'error'); }
+                        } else {
+                            try { await api('/cart/items/' + itemId, { method: 'PUT', body: JSON.stringify({ quantity: cur - 1 }) }); span.textContent = cur - 1; updateCartBadge(); } catch (err) { showToast(err.message, 'error'); }
+                        }
+                    });
+                    block.querySelector('.product-inc').addEventListener('click', async () => {
+                        const cur = parseInt(span.textContent, 10) || 0;
+                        try { await api('/cart/items/' + itemId, { method: 'PUT', body: JSON.stringify({ quantity: cur + 1 }) }); span.textContent = cur + 1; updateCartBadge(); } catch (err) { showToast(err.message, 'error'); }
+                    });
+                }
+                block.querySelectorAll('.product-img[data-action="open-product"]').forEach(el => {
+                    el.addEventListener('click', () => showProduct(p.id));
+                });
+            } catch (e) {
+                block.innerHTML = '<div class="empty">' + escapeHtml(e.message) + '</div>';
+            }
+        }
+
+        document.getElementById('product-back').addEventListener('click', function(e) {
+            e.preventDefault();
+            location.hash = 'catalog';
+            onHash();
+        });
+
+        async function addToCart(pid) {
+            try {
+                await api('/cart/items', { method: 'POST', body: JSON.stringify({ product_id: pid, quantity: 1 }) });
+                updateCartBadge();
+                refreshCatalog();
+            } catch (e) {
+                showToast(e.message, 'error');
+            }
+        }
+
+        async function toggleFav(pid) {
+            try {
+                await api('/favorites/toggle', { method: 'POST', body: JSON.stringify({ product_id: pid }) });
+                refreshCatalog();
+            } catch (e) {
+                showToast(e.message, 'error');
+            }
+        }
+
+        async function refreshCatalog() {
+            const [items, favIds, cart] = await Promise.all([loadProducts(catalogPage), loadFavorites(), loadCart()]);
+            renderCatalog(items, favIds, cart);
+        }
+
+        document.getElementById('page-first').addEventListener('click', () => { if (catalogPage > 1) { catalogPage = 1; refreshCatalog(); } });
+        document.getElementById('page-prev').addEventListener('click', () => { if (catalogPage > 1) { catalogPage--; refreshCatalog(); } });
+        document.getElementById('page-next').addEventListener('click', () => { if (catalogPage < catalogTotalPages) { catalogPage++; refreshCatalog(); } });
+        document.getElementById('page-last').addEventListener('click', () => { if (catalogPage < catalogTotalPages) { catalogPage = catalogTotalPages; refreshCatalog(); } });
+
+        function renderOrders(data) {
+            const list = document.getElementById('orders-list');
+            const pagination = document.getElementById('orders-pagination');
+            if (!data || !data.items || !data.items.length) {
+                list.innerHTML = '<div class="empty">Нет заказов</div>';
+                pagination.style.display = 'none';
+                return;
+            }
+            ordersTotal = data.total || 0;
+            ordersTotalPages = Math.max(1, Math.ceil(ordersTotal / ORDERS_PAGE_SIZE));
+            list.innerHTML = data.items.map(function(o) {
+                const itemsText = (o.items || []).map(function(it) {
+                    const p = it.product || {};
+                    const name = p.name || 'Товар';
+                    return name + ' × ' + (it.quantity || 0);
+                }).join('; ');
+                return '<div class="order-card">' +
+                    '<h3>Заказ #' + o.id + '</h3>' +
+                    '<div class="order-meta">' + formatOrderDate(o.created_at) + ' · ' + orderStatusLabel(o.status) + '</div>' +
+                    '<div class="order-total">' + (o.total_amount != null ? o.total_amount : 0) + ' ₽</div>' +
+                    (itemsText ? '<div class="order-items">' + escapeHtml(itemsText) + '</div>' : '') +
+                    '</div>';
+            }).join('');
+            pagination.style.display = 'flex';
+            document.getElementById('orders-page-info').textContent = ordersPage + ' / ' + ordersTotalPages;
+            document.getElementById('orders-prev').disabled = ordersPage <= 1;
+            document.getElementById('orders-next').disabled = ordersPage >= ordersTotalPages;
+        }
+
+        async function refreshOrdersView() {
+            try {
+                const data = await loadOrders(ordersPage);
+                ordersPage = data.page || 1;
+                renderOrders(data);
+            } catch (e) {
+                document.getElementById('orders-list').innerHTML = '<div class="empty">' + escapeHtml(e.message) + '</div>';
+                document.getElementById('orders-pagination').style.display = 'none';
+            }
+        }
+
+        function updateCartBadge() {
+            loadCart().then(cart => {
+                const badge = document.getElementById('cart-badge');
+                const n = cart && cart.items ? cart.items.reduce((s, i) => s + (i.quantity || 0), 0) : 0;
+                badge.textContent = n ? '(' + n + ')' : '';
+            }).catch(() => {});
+        }
+
+        function renderCart(cart) {
+            const list = document.getElementById('cart-list');
+            if (!cart || !cart.items || !cart.items.length) {
+                list.innerHTML = '<div class="empty">Корзина пуста</div>';
+                document.getElementById('cart-total').textContent = '';
+                return;
+            }
+            list.innerHTML = cart.items.map(it => {
+                const itemId = it.id ?? it.item_id ?? 0;
+                const qty = it.quantity ?? 1;
+                const p = it.product || {};
+                const name = (p && (p.name ?? p.title)) || 'Товар';
+                const price = (p && (p.price != null ? p.price : p.price_display)) ?? '';
+                return '<div class="cart-item" data-item-id="' + itemId + '">' +
+                    '<div><strong>' + escapeHtml(name) + '</strong> ' + price + ' ₽</div>' +
+                    '<div class="qty">' +
+                    '<div class="qty-wrap">' +
+                    '<button type="button" class="btn-qty cart-dec" aria-label="Уменьшить">−</button>' +
+                    '<span class="cart-qty-num">' + qty + '</span>' +
+                    '<button type="button" class="btn-qty cart-inc" aria-label="Увеличить">+</button>' +
+                    '</div>' +
+                    '<button type="button" class="btn btn-secondary btn-small cart-rm">Удалить</button>' +
+                    '</div></div>';
+            }).join('');
+            document.getElementById('cart-total').textContent = 'Итого: ' + (cart.total_price || 0) + ' ₽';
+
+            list.querySelectorAll('.cart-dec').forEach(btn => {
+                const itemId = parseInt(btn.closest('.cart-item').dataset.itemId, 10);
+                const span = btn.closest('.qty').querySelector('.cart-qty-num');
+                btn.addEventListener('click', () => updateCartQty(itemId, parseInt(span.textContent, 10) - 1, span));
+            });
+            list.querySelectorAll('.cart-inc').forEach(btn => {
+                const itemId = parseInt(btn.closest('.cart-item').dataset.itemId, 10);
+                const span = btn.closest('.qty').querySelector('.cart-qty-num');
+                btn.addEventListener('click', () => updateCartQty(itemId, parseInt(span.textContent, 10) + 1, span));
+            });
+            list.querySelectorAll('.cart-rm').forEach(btn => {
+                const itemId = parseInt(btn.closest('.cart-item').dataset.itemId, 10);
+                btn.addEventListener('click', () => removeCartItem(itemId));
+            });
+        }
+
+        async function updateCartQty(itemId, qty, spanEl) {
+            if (qty < 1) return;
+            try {
+                await api('/cart/items/' + itemId, { method: 'PUT', body: JSON.stringify({ quantity: qty }) });
+                spanEl.textContent = qty;
+                refreshCartView();
+                updateCartBadge();
+            } catch (e) {
+                showToast(e.message, 'error');
+            }
+        }
+
+        async function removeCartItem(itemId) {
+            try {
+                await api('/cart/items/' + itemId, { method: 'DELETE' });
+                refreshCartView();
+                updateCartBadge();
+            } catch (e) {
+                showToast(e.message, 'error');
+            }
+        }
+
+        async function refreshCartView() {
+            const cart = await loadCart();
+            renderCart(cart);
+        }
+
+        document.getElementById('cart-clear').addEventListener('click', async () => {
+            try {
+                await api('/cart', { method: 'DELETE' });
+                refreshCartView();
+                updateCartBadge();
+            } catch (e) {
+                showToast(e.message, 'error');
+            }
+        });
+
+        function getPhoneFromTelegram() {
+            try {
+                if (typeof Telegram !== 'undefined' && Telegram.WebApp && Telegram.WebApp.initDataUnsafe && Telegram.WebApp.initDataUnsafe.user) {
+                    const u = Telegram.WebApp.initDataUnsafe.user;
+                    if (u.phone) return u.phone;
+                }
+            } catch (e) {}
+            return '';
+        }
+
+        document.getElementById('cart-checkout').addEventListener('click', () => {
+            location.hash = 'checkout';
+            showView('checkout');
+            document.getElementById('consent-checkbox').checked = false;
+            const phoneEl = document.getElementById('checkout-phone');
+            phoneEl.value = phoneEl.value || getPhoneFromTelegram();
+        });
+
+        document.getElementById('privacy-link').addEventListener('click', function(e) {
+            e.preventDefault();
+            var base = window.location.origin + window.location.pathname + (window.location.search || '');
+            var sep = base.indexOf('?') >= 0 ? '&' : '?';
+            var returnUrl = base + sep + 'view=checkout';
+            location.href = '/privacy?return_url=' + encodeURIComponent(returnUrl);
+        });
+
+        document.getElementById('checkout-submit').addEventListener('click', async () => {
+            const phone = (document.getElementById('checkout-phone').value || '').trim();
+            if (!phone || phone.length < 5) {
+                showToast('Укажите контактный телефон.', 'error');
+                return;
+            }
+            if (!document.getElementById('consent-checkbox').checked) {
+                showToast('Подтвердите согласие на обработку персональных данных.', 'error');
+                return;
+            }
+            try {
+                const data = await api('/orders/checkout', { method: 'POST', body: JSON.stringify({ personal_data_consent: true, contact_phone: phone }) });
+                const orderId = data.order && data.order.id;
+                if (isInTelegramWebApp()) {
+                    try { Telegram.WebApp.showPopup({ title: 'Заказ принят', message: 'Заказ №' + orderId + ' принят! Ожидайте, мы свяжемся с вами.' }); } catch (e) { showToast('Заказ №' + orderId + ' принят! Ожидайте, мы свяжемся с вами.', 'success'); }
+                } else {
+                    showToast('Заказ №' + orderId + ' принят! Ожидайте, мы свяжемся с вами.', 'success');
+                }
+                location.hash = 'catalog';
+                showView('catalog');
+                refreshCartView();
+                refreshCatalog();
+                updateCartBadge();
+            } catch (e) {
+                showToast(e.message || 'Ошибка оформления', 'error');
+            }
+        });
+
+        function onHash() {
+            const hash = (location.hash || '#catalog').slice(1);
+            if (hash === 'cart') {
+                showView('cart');
+                refreshCartView();
+            } else if (hash === 'orders') {
+                showView('orders');
+                refreshOrdersView();
+            } else if (hash === 'checkout') {
+                showView('checkout');
+            } else if (hash.startsWith('product/')) {
+                const id = parseInt(hash.split('/')[1], 10);
+                if (id) showProduct(id);
+            } else {
+                showView('catalog');
+                refreshCatalog();
+            }
+        }
+
+        document.getElementById('nav-catalog').addEventListener('click', e => { e.preventDefault(); location.hash = 'catalog'; onHash(); });
+        document.getElementById('nav-cart').addEventListener('click', e => {
+            e.preventDefault();
+            location.hash = 'cart';
+            showView('cart');
+            refreshCartView();
+        });
+        document.getElementById('nav-orders').addEventListener('click', e => {
+            e.preventDefault();
+            location.hash = 'orders';
+            showView('orders');
+            refreshOrdersView();
+        });
+        document.getElementById('orders-prev').addEventListener('click', () => { if (ordersPage > 1) { ordersPage--; refreshOrdersView(); } });
+        document.getElementById('orders-next').addEventListener('click', () => { if (ordersPage < ordersTotalPages) { ordersPage++; refreshOrdersView(); } });
+        window.addEventListener('hashchange', onHash);
+
+        var searchParams = new URLSearchParams(window.location.search);
+        var returnView = searchParams.get('view');
+        if (returnView === 'checkout') {
+            location.hash = 'checkout';
+            searchParams.delete('view');
+            var qs = searchParams.toString();
+            history.replaceState(null, '', window.location.pathname + (qs ? '?' + qs : '') + location.hash);
+        }
+        updateCartBadge();
+        onHash();
+    })();
+    </script>
+</body>
+</html>
