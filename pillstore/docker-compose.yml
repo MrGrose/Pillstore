@@ -29,7 +29,7 @@ services:
       - ./logs:/app/logs
       - ./static:/app/static
       - ./media:/app/media
-      - ./app/tests_data:/app/tests_data
+      - ./app/test_data:/app/app/test_data
       - ./app:/app/app
       - ./templates:/app/templates
     depends_on:
