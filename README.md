@@ -1,6 +1,6 @@
 # PillStore - FastAPI E-commerce
 
-Полнофункциональное веб-приложение интернет-магазина БАДов на FastAPI с PostgreSQL, аутентификацией, админ-панелью, корзиной, заказами и скрейпером iHerb.
+Полнофункциональное веб-приложение интернет-магазина БАДов на FastAPI с PostgreSQL, аутентификацией, админ-панелью, корзиной, заказами, скрейпером iHerb и Telegram-ботом с Mini App.
 
 ## Основные возможности
 
@@ -38,6 +38,12 @@
 - Парсинг цен, изображений и характеристик
 - Пакетный импорт товаров в каталог
 
+### Telegram-бот
+- Привязка аккаунта по email (проверка через API)
+- Регистрация в боте (email + пароль) с последующей привязкой
+- Мини-приложение магазина (Web App): каталог, корзина, оформление заказа
+- Команды: `/start` (приветствие и привязка), `/help`
+
 ### API
 - RESTful API с версионированием (v2)
 - Swagger документация (автогенерация)
@@ -64,6 +70,10 @@
 - **Poetry** - управление зависимостями Python
 - **Uvicorn** - ASGI сервер
 
+### Telegram-бот (отдельное приложение)
+- **Aiogram 3.x** - асинхронный фреймворк для Telegram Bot API
+- **Aiohttp** - запросы к API PillStore
+
 ### Вспомогательные библиотеки
 - **Jinja2** - шаблонизация HTML
 - **Aiohttp** - асинхронные HTTP запросы
@@ -82,13 +92,19 @@
 pillstore/
 ├── Makefile                 # Команды: make up, make run, make lint, make migrate …
 ├── alembic.ini              # Конфигурация Alembic
-├── docker-compose.yml       # Docker Compose
+├── docker-compose.yml       # Docker Compose (db, api)
 ├── Dockerfile               # Образ приложения
 ├── pyproject.toml           # Зависимости Poetry
 ├── media/                   # Загружаемые файлы
-├── static/                 # Статические файлы (CSS, JS)
-├── templates/              # Jinja2 HTML шаблоны
-└── app/                    # Основной код приложения
+├── static/                  # Статические файлы (CSS, JS)
+├── templates/               # Jinja2 HTML шаблоны
+├── bot/                     # Telegram-бот (отдельный Poetry-проект)
+│   ├── main.py              # Точка входа бота (polling)
+│   ├── config.py            # PILLSTORE_BOT_TOKEN, API URL, Mini App URL
+│   ├── handlers.py          # Обработчики /start, /help, привязка по email
+│   ├── api_client.py        # Клиент API (check-email, link-telegram, mini-app-token)
+│   └── pyproject.toml       # Зависимости: aiogram, aiohttp, python-dotenv
+└── app/                     # Основной код приложения
     ├── main.py             # Точка входа FastAPI
     ├── core/
     │   ├── config.py
@@ -170,18 +186,25 @@ cd pillstore
 Создайте в папке **pillstore/** файл `.env`:
 
 ```env
-# База данных (для Docker DATABASE_URL с хостом db; без Docker — session.py соберёт URL из POSTGRES_* и localhost:POSTGRES_PORT)
+# База данных (для Docker DATABASE_URL с хостом db; без Docker - session.py соберёт URL из POSTGRES_* и localhost:POSTGRES_PORT)
 POSTGRES_USER=postgres
 POSTGRES_PASSWORD=postgres
 POSTGRES_DB=pillstore_db
 POSTGRES_PORT=5434
 DATABASE_URL=postgresql+asyncpg://postgres:postgres@db:5432/pillstore_db
 
-# Окружение (production — включает HTTPS redirect в main.py)
+# Окружение (production - включает HTTPS redirect в main.py)
 ENV=development
 
 # JWT (обязательно свой ключ в production)
 SECRET_KEY=ваш-длинный-секретный-ключ
+
+# Mini App и Telegram-бот (опционально)
+# TELEGRAM_BOT_TOKEN=...           # Токен бота для проверки initData Mini App (в API)
+# PILLSTORE_BOT_TOKEN=123:ABC...   # Тот же токен для запуска бота (в .env бота)
+# PILLSTORE_API_URL=http://localhost:8000
+# PILLSTORE_MINI_APP_URL=          # Публичный URL для Mini App (если отличается от API)
+# PILLSTORE_SITE_URL=              # URL сайта для ссылки «Перейти на сайт»
 ```
 
 Скрейпер iHerb не использует переменные окружения: базовый URL и настройки заданы в коде (`app/utils/iherb_scraper.py`).
@@ -206,7 +229,19 @@ make migrate-local   # alembic upgrade head
 make run             # uvicorn с --reload
 ```
 
-### 5. Доступ к приложению
+### 5. Запуск Telegram-бота (опционально)
+Бот работает как отдельное приложение и обращается к API по HTTP. Запуск из папки **pillstore/bot/**:
+
+```bash
+cd pillstore/bot
+poetry install
+# В .env в pillstore/ или в bot/ задайте: PILLSTORE_BOT_TOKEN, PILLSTORE_API_URL
+poetry run python main.py
+```
+
+Переменные: `PILLSTORE_BOT_TOKEN` (обязательно), `PILLSTORE_API_URL` (по умолчанию http://localhost:8000), при необходимости `PILLSTORE_MINI_APP_URL` и `PILLSTORE_SITE_URL`. Для Mini App в Telegram нужен HTTPS (или туннель ngrok и т.п.).
+
+### 6. Доступ к приложению
 - **Главная страница**: http://localhost:8000/
 - **Swagger документация**: http://localhost:8000/docs
 - **ReDoc документация**: http://localhost:8000/redoc
@@ -228,6 +263,7 @@ make run             # uvicorn с --reload
 | POST | `/auth/register` | Регистрация |
 | GET | `/auth/reset-password` | Форма сброса пароля |
 | POST | `/auth/reset-password` | Сброс пароля |
+| GET | `/mini` | Mini App магазина (Telegram Web App, параметр `t` - токен) |
 | GET | `/health` | Healthcheck |
 
 ### Защищённые HTML (требуют аутентификации)
@@ -286,6 +322,9 @@ make run             # uvicorn с --reload
 | DELETE | `/categories/{id}` | Деактивировать категорию |
 | POST | `/auth/register` | Регистрация |
 | POST | `/auth/login` | Вход (Form) |
+| GET | `/auth/check-email` | Проверка существования email (для бота) |
+| POST | `/auth/link-telegram` | Привязка Telegram ID к аккаунту |
+| POST | `/auth/mini-app-token` | Токен для Mini App (заголовок X-Telegram-User-Id) |
 | POST | `/token` | JWT (OAuth2 form для Swagger) |
 | GET | `/users/me` | Текущий пользователь |
 | PUT | `/users/me` | Обновить профиль |
@@ -323,7 +362,7 @@ make run             # uvicorn с --reload
 
 ## Разработка
 
-Команды выполняются из папки **pillstore/** (где лежат `Makefile`, `pyproject.toml`, `app/`).
+Команды выполняются из папки **pillstore/** (где лежат `Makefile`, `pyproject.toml`, `app/`). Telegram-бот - отдельный Poetry-проект в `pillstore/bot/`, см. раздел «Запуск Telegram-бота».
 
 ### Makefile
 
@@ -347,7 +386,7 @@ make run             # uvicorn с --reload
 
 Миграции вручную: `poetry run alembic revision --autogenerate -m "описание"`, `poetry run alembic upgrade head`, `poetry run alembic downgrade -1`.
 
-Тестовые данные: при старте (lifespan) создаётся админ **admin@admin.ru** / `12345678` и при наличии `app/test_data/products.json` — импорт товаров. Тестов и pytest-cov в проекте пока нет.
+Тестовые данные: при старте (lifespan) создаётся админ **admin@admin.ru** / `12345678` и при наличии `app/test_data/products.json` - импорт товаров. Тестов и pytest-cov в проекте пока нет.
 
 ## Модели данных
 
@@ -365,7 +404,7 @@ make run             # uvicorn с --reload
 - Хеширование паролей с BCrypt
 - CORS и список доверенных хостов задаются через .env (ALLOWED_ORIGINS, ALLOWED_HOSTS)
 - TrustedHostMiddleware и HTTPS-редирект в production
-- Куки: httponly, в production — secure и samesite=lax
+- Куки: httponly, в production - secure и samesite=lax
 - В production обязателен SECRET_KEY не короче 32 символов (проверка при старте)
 - SQL-запросы в production не логируются (echo=False)
 - Валидация входных данных с Pydantic
@@ -377,8 +416,8 @@ make run             # uvicorn с --reload
 - `ENV=production`
 - `SECRET_KEY=<длинный случайный ключ ≥32 символов>`
 - `DATABASE_URL=postgresql+asyncpg://...` (доступ к БД с сервера)
-- `ALLOWED_HOSTS=yourdomain.com,www.yourdomain.com` — ваши домены
-- `ALLOWED_ORIGINS=https://yourdomain.com,...` — разрешённые источники для CORS (если есть отдельный фронт)
+- `ALLOWED_HOSTS=yourdomain.com,www.yourdomain.com` - ваши домены
+- `ALLOWED_ORIGINS=https://yourdomain.com,...` - разрешённые источники для CORS (если есть отдельный фронт)
 
 Рекомендуется: прокси (nginx) с HTTPS и проксирование на uvicorn, отключить `--reload` в production.
 
