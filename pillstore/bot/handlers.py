@@ -2,19 +2,18 @@ import logging
 import re
 
 import aiohttp
-from aiogram import Router, F
+from aiogram import F, Router
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import (
     CallbackQuery,
     InlineKeyboardButton,
     InlineKeyboardMarkup,
+    KeyboardButton,
     Message,
     ReplyKeyboardMarkup,
-    KeyboardButton,
     WebAppInfo,
 )
-
 from api_client import client
 from config import API_BASE_URL, MINI_APP_PUBLIC_URL, SITE_URL
 
