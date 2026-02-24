@@ -3,13 +3,13 @@
 Полнофункциональное веб-приложение интернет-магазина БАДов на FastAPI с PostgreSQL, аутентификацией, админ-панелью, корзиной, заказами, скрейпером iHerb и Telegram-ботом с Mini App.
 
 <div align="center">
-<table>
+<table width="100%">
 <tr>
-  <td align="center">
-    <img src="pillstore/demo_web.gif" width="1000" height="900" alt="Веб">
+  <td width="70%" align="center">
+    <img src="pillstore/demo_web.gif" alt="Веб" style="max-width:100%;height:600px;object-fit:contain;">
   </td>
-  <td align="center">
-    <img src="pillstore/demo_tg.gif" width="400" height="900" alt="Бот">
+  <td width="30%" align="center">
+    <img src="pillstore/demo_tg.gif" alt="Бот" style="max-width:100%;height:600px;object-fit:contain;">
   </td>
 </tr>
 </table>
