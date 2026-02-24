@@ -31,6 +31,7 @@ class Product(Base):
     name_en: Mapped[str] = mapped_column(String(255))
     brand: Mapped[str] = mapped_column(String(100))
     price: Mapped[float] = mapped_column(Numeric(10, 2))
+    cost: Mapped[float] = mapped_column(Numeric(10, 2), default=0, nullable=False)
     url: Mapped[str | None] = mapped_column(String(255), unique=True)
     image_url: Mapped[str | None] = mapped_column(String(255))
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
@@ -45,6 +46,14 @@ class Product(Base):
     order_items: Mapped[list["OrderItem"]] = relationship(  # noqa: F821
         "OrderItem", back_populates="product"
     )
+    batches: Mapped[list["ProductBatch"]] = relationship(  # noqa: F821
+        "ProductBatch",
+        back_populates="product",
+        cascade="all, delete-orphan",
+    )
+    favorited_by: Mapped[list["UserFavorite"]] = relationship(  # noqa: F821
+        "UserFavorite", back_populates="product", cascade="all, delete-orphan"
+    )
 
     description_left: Mapped[str | None] = mapped_column(Text)
     description_right: Mapped[str | None] = mapped_column(Text)
@@ -53,7 +62,6 @@ class Product(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime, nullable=True, server_default=func.now()
     )
-    expiry_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
     categories = relationship(
         "Category", secondary=product_categories, back_populates="products"

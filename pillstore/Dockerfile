@@ -16,8 +16,10 @@ COPY pyproject.toml poetry.lock ./
 RUN poetry config virtualenvs.create false \
     && poetry install --no-root --no-interaction --no-ansi
 
+RUN poetry run playwright install --with-deps chromium
+
 COPY . .
 RUN pip install --no-cache-dir pydantic-settings \
     && mkdir -p logs static media
 
-CMD ["poetry", "run", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["poetry", "run", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--no-access-log"]

@@ -1,19 +1,39 @@
 from __future__ import annotations
+
 import argparse
 import json
+import logging
+import random
 import re
 import time
-from dataclasses import dataclass
 from collections.abc import Iterable
-from urllib.parse import urljoin, urlencode, urlparse, parse_qs, urlunparse
-import cloudscraper
-from googletrans import Translator
+from concurrent.futures import ThreadPoolExecutor
+from dataclasses import dataclass
+from urllib.parse import parse_qs, urlencode, urljoin, urlparse, urlunparse
 
+import cloudscraper
 import requests
 from bs4 import BeautifulSoup
-import random
+from deep_translator import GoogleTranslator
 
-translator = Translator()
+try:
+    from playwright.sync_api import sync_playwright
+    PLAYWRIGHT_AVAILABLE = True
+except ImportError:
+    PLAYWRIGHT_AVAILABLE = False
+    sync_playwright = None
+
+def _translate_en_ru(text: str) -> str:
+    if not (text or "").strip():
+        return text or ""
+    try:
+        return GoogleTranslator(source="en", target="ru").translate(text=text[:5000]) or text
+    except Exception:
+        return text
+
+
+logger = logging.getLogger(__name__)
+_playwright_executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="playwright")
 BASE = "https://www.iherb.com"
 
 HEADERS = {
@@ -41,6 +61,15 @@ SLEEP_BETWEEN_REQUESTS = (2.0, 4.0)
 
 def sleep_politely():
     time.sleep(random.uniform(*SLEEP_BETWEEN_REQUESTS))
+
+
+class _FakeResponse:
+    def __init__(self, text: str):
+        self.text = text
+        self.status_code = 200
+
+    def raise_for_status(self):
+        pass
 
 
 @dataclass
@@ -73,6 +102,41 @@ class IHerbScraper:
             pu = pu._replace(netloc="www.iherb.com")
         return urlunparse(pu)
 
+    def _is_cloudflare_challenge(self, resp: requests.Response) -> bool:
+        if resp.status_code in (403, 503):
+            return True
+        text = (resp.text or "").lower()
+        return (
+            "just a moment" in text
+            or "cf-browser-verification" in text
+            or "checking your browser" in text
+        )
+
+    def _fetch_via_playwright(self, url: str) -> str | None:
+        if not PLAYWRIGHT_AVAILABLE or sync_playwright is None:
+            return None
+        try:
+            with sync_playwright() as p:
+                browser = p.chromium.launch(headless=True, args=["--no-sandbox"])
+                context = browser.new_context(
+                    locale="en-US",
+                    user_agent=HEADERS["User-Agent"],
+                    extra_http_headers={"Accept-Language": "en-US,en;q=0.9"},
+                )
+                context.add_cookies([
+                    {"name": "iher-pref1", "value": "en-US", "domain": ".iherb.com", "path": "/"},
+                    {"name": "iher-pref2", "value": "US", "domain": ".iherb.com", "path": "/"},
+                ])
+                page = context.new_page()
+                page.goto(url, wait_until="domcontentloaded", timeout=60000)
+                page.wait_for_timeout(3000)
+                html = page.content()
+                browser.close()
+                return html
+        except Exception as e:
+            logger.warning("Playwright fallback не сработал: %s", e)
+            return None
+
     def get(self, url: str):  # noqa: C901
         url = self._normalize_www(url)
         if not hasattr(self, "_ua_counter"):
@@ -96,13 +160,30 @@ class IHerbScraper:
                     self.sess.headers["Referer"] = "https://www.iherb.com/"
 
                 resp = self.sess.get(url, timeout=(10, 60), allow_redirects=True)
-                if resp.status_code == 403:
-                    raise requests.HTTPError(f"403 Forbidden for {url}")
+                if resp.status_code == 403 or self._is_cloudflare_challenge(resp):
+                    if PLAYWRIGHT_AVAILABLE:
+                        html = _playwright_executor.submit(
+                            self._fetch_via_playwright, url
+                        ).result(timeout=70)
+                        if html:
+                            return _FakeResponse(html)
+                    else:
+                        logger.warning("Парсинг iHerb: 403, Playwright недоступен: %s", url)
+                    if resp.status_code == 403:
+                        raise requests.HTTPError(f"403 Forbidden for {url}")
                 resp.raise_for_status()
 
                 time.sleep(random.uniform(3, 6))
                 return resp
 
+            except requests.HTTPError:
+                if PLAYWRIGHT_AVAILABLE:
+                    html = _playwright_executor.submit(
+                        self._fetch_via_playwright, url
+                    ).result(timeout=70)
+                    if html:
+                        return _FakeResponse(html)
+                raise
             except requests.exceptions.ReadTimeout:
                 if attempt < max_retries - 1:
                     wait = 2**attempt + random.uniform(0, 1)
@@ -180,9 +261,17 @@ class IHerbScraper:
     def parse_product_page(self, url: str) -> ProductScraper | None:  # noqa: C901
         try:
             html = self.get(url).text
-        except requests.HTTPError:
+        except requests.HTTPError as e:
+            logger.error("Парсинг iHerb: %s", e)
             return None
 
+        try:
+            return self._parse_product_page_html(url, html)
+        except Exception as e:
+            logger.exception("Парсинг iHerb: ошибка разбора страницы %s: %s", url, e)
+            return None
+
+    def _parse_product_page_html(self, url: str, html: str) -> ProductScraper:
         soup = BeautifulSoup(html, "lxml")
         product = ProductScraper(url=self._normalize_www(url))
 
@@ -195,13 +284,7 @@ class IHerbScraper:
         if prod:
             product.name_en = prod.get("name") or product.name_en
             if product.name_en:
-                try:
-                    translated = translator.translate(
-                        product.name_en, src="en", dest="ru"
-                    )
-                    product.name = translated.text
-                except Exception as e:
-                    print(f"[WARN] NAME RU: {e}")
+                product.name = _translate_en_ru(product.name_en)
 
             brand = prod.get("brand")
             if isinstance(brand, dict):
@@ -230,28 +313,15 @@ class IHerbScraper:
         if left_col:
             product.description_left = " ".join(left_col.stripped_strings)
             if product.description_left:
-                translated = translator.translate(
-                    product.description_left, src="en", dest="ru"
-                )
-                product.description_left = translated.text
+                product.description_left = _translate_en_ru(product.description_left)
 
         if right_col:
             product.description_right = " ".join(right_col.stripped_strings)
             if product.description_right:
-                translated = translator.translate(
-                    product.description_right, src="en", dest="ru"
-                )
-                product.description_right = translated.text
+                product.description_right = _translate_en_ru(product.description_right)
 
         if product.category_path:
-            translated_path = []
-            for cat_name in product.category_path:
-                try:
-                    translated = translator.translate(cat_name, src="en", dest="ru")
-                    translated_path.append(translated.text)
-                except Exception:
-                    translated_path.append(cat_name)
-            product.category_path = translated_path
+            product.category_path = [_translate_en_ru(c) for c in product.category_path]
 
         if not product.name:
             h1 = soup.find(["h1", "h2"], attrs={"itemprop": "name"}) or soup.find("h1")
@@ -344,16 +414,12 @@ def is_russian_text(text: str) -> bool:
     return russian_ratio > 0.3
 
 
-def safe_translate_if_english(text: str, translator) -> str:
+def safe_translate_if_english(text: str, _translator=None) -> str:
     if not text:
         return ""
     if is_russian_text(text):
         return text
-    try:
-        translated = translator.translate(text[:1000], src="en", dest="ru")
-        return translated.text
-    except Exception:
-        return text
+    return _translate_en_ru(text[:1000])
 
 
 def crawl(  # noqa: C901

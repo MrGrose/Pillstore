@@ -22,6 +22,10 @@ class Order(Base):
     total_amount: Mapped[Decimal] = mapped_column(
         Numeric(10, 2), default=0, nullable=False
     )
+    contact_phone: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    personal_data_consent: Mapped[bool] = mapped_column(
+        default=False, nullable=False
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
@@ -51,6 +55,7 @@ class OrderItem(Base):
     )
     quantity: Mapped[int] = mapped_column(Integer, nullable=False)
     unit_price: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
+    unit_cost: Mapped[Decimal | None] = mapped_column(Numeric(10, 2), nullable=True)
     total_price: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
 
     order: Mapped["Order"] = relationship("Order", back_populates="items")

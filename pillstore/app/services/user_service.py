@@ -11,9 +11,7 @@ class UserService:
         self.session = session
         self.user_crud = CrudUser(session=session, model=User)
 
-    async def create_admin_user(
-        self, email: str, password: str, role: str
-    ) -> tuple[str, int] | str:
+    async def create_admin_user(self, email: str, password: str, role: str) -> str:
         if await self.user_crud.check_user_email(email):
             raise BusinessError("Пользователь", f"{email} уже существует")
         hashed_password = hash_password(password)
@@ -23,7 +21,7 @@ class UserService:
 
     async def update_admin_user(
         self, user_id: int, email: str, password: str | None, role: str
-    ) -> tuple[str, int] | str:
+    ) -> str:
         user = await self.user_crud.get_by_id(user_id)
         if not user:
             raise UserNotFoundError(user_id)
@@ -38,14 +36,14 @@ class UserService:
         updated_user = await self.user_crud.update(user, update_data)
         return f"Пользователь {updated_user.email} обновлен"
 
-    async def delete_admin_user(self, user_id: int) -> tuple[str, int] | str:
+    async def delete_admin_user(self, user_id: int) -> str:
         user = await self.user_crud.get_by_id(user_id)
         if not user:
             raise UserNotFoundError(user_id)
         await self.user_crud.delete(user_id)
         return f"Пользователь {user.email} (ID {user_id}) удален"
 
-    async def get_user_for_edit(self, user_id: int) -> tuple[str, int] | User:
+    async def get_user_for_edit(self, user_id: int) -> User:
         user = await self.user_crud.get_by_id(user_id)
         if not user:
             raise UserNotFoundError(user_id)
@@ -55,9 +53,7 @@ class UserService:
         user = await self.user_crud.check_user_email(email)
         if not user or not verify_password(password, user.hashed_password):
             raise BusinessError("Авторизация", "Неверный email или пароль")
-        return create_access_token(
-            {"sub": user.email, "role": user.role, "id": user.id}
-        )
+        return self._token_for_user(user)
 
     async def register_user(self, email: str, password: str, role: str) -> User:
         hashed_pw = hash_password(password)
@@ -67,6 +63,12 @@ class UserService:
         user_dict = {"email": email, "hashed_password": hashed_pw, "role": role}
         user = await self.user_crud.create(user_dict)
         return user
+
+    async def register_user_and_issue_token(
+        self, email: str, password: str, role: str
+    ) -> tuple[User, str]:
+        user = await self.register_user(email, password, role)
+        return user, self._token_for_user(user)
 
     async def validate_register_data(self, email: str, password: str) -> dict[str, str]:
         errors = await self._validate_base_data(
@@ -114,6 +116,11 @@ class UserService:
     def _is_valid_password(self, password: str) -> bool:
         return bool(password and len(password) >= 6)
 
+    def _token_for_user(self, user: User) -> str:
+        return create_access_token(
+            {"sub": user.email, "role": user.role, "id": user.id}
+        )
+
     async def reset_password(
         self, email: str, new_password: str, confirm_password: str
     ) -> dict:
@@ -133,14 +140,10 @@ class UserService:
         hashed_password = hash_password(new_password)
         await self.user_crud.update(user, {"hashed_password": hashed_password})
 
-        access_token = create_access_token(
-            {"sub": user.email, "role": user.role, "id": user.id}
-        )
-
         return {
             "success": True,
             "message": "Пароль успешно изменен",
-            "access_token": access_token,
+            "access_token": self._token_for_user(user),
             "user": user,
         }
 
@@ -209,3 +212,13 @@ class UserService:
         if not user:
             raise ValueError("Пользователь не найден")
         return user
+
+    async def get_user_by_email_optional(self, email: str) -> User | None:
+        return await self.user_crud.check_user_email(email)
+
+    async def link_telegram(self, user_id: int, telegram_id: int) -> None:
+        await self.user_crud.clear_telegram_id(telegram_id)
+        user = await self.user_crud.get_by_id(user_id)
+        if not user:
+            raise UserNotFoundError(user_id)
+        await self.user_crud.update(user, {"telegram_id": telegram_id})

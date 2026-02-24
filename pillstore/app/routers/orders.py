@@ -1,14 +1,19 @@
 from fastapi import APIRouter, Depends, Form, Request, status
 from fastapi.responses import HTMLResponse, RedirectResponse
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import templates
 from app.core.deps import get_db
+from app.core.receipt_config import (
+    RECEIPT_FOOTER,
+    RECEIPT_TITLE,
+    RECEIPT_TOTAL_LABEL,
+    build_receipt_meta,
+    build_receipt_table,
+    build_receipt_total,
+)
 from app.core.security import get_current_user
-from app.models.products import Product
 from app.models.users import User as UserModel
-from app.schemas.order import OrderSchema
 from app.services.cart import get_cart_count
 from app.services.cart_service import CartService
 from app.services.order_service import OrderService
@@ -18,18 +23,102 @@ from app.services.product_service import ProductService
 router = APIRouter(prefix="/orders")
 
 
-@router.post(
-    "/checkout", response_model=OrderSchema, status_code=status.HTTP_201_CREATED
-)
+@router.get("/checkout", response_class=HTMLResponse)
+async def checkout_form(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    current_user: UserModel = Depends(get_current_user),
+    cart_count: int = Depends(get_cart_count),
+):
+    cart_svc = CartService(db)
+    cart_items, total = await cart_svc.get_cart_page(current_user, ordered=False)
+    return templates.TemplateResponse(
+        "order/checkout.html",
+        {
+            "request": request,
+            "cart_items": cart_items,
+            "total": total,
+            "current_user": current_user,
+            "cart_count": cart_count,
+        },
+    )
+
+
+@router.post("/checkout", response_class=HTMLResponse)
 async def checkout_order(
+    request: Request,
+    contact_phone: str = Form(..., min_length=5),
+    personal_data_consent: str = Form(...),
+    db: AsyncSession = Depends(get_db),
+    current_user: UserModel = Depends(get_current_user),
+    cart_count: int = Depends(get_cart_count),
+):
+    if personal_data_consent != "1":
+        cart_svc = CartService(db)
+        cart_items, total = await cart_svc.get_cart_page(current_user, ordered=False)
+        return templates.TemplateResponse(
+            "order/checkout.html",
+            {
+                "request": request,
+                "cart_items": cart_items,
+                "total": total,
+                "current_user": current_user,
+                "cart_count": cart_count,
+                "contact_phone": contact_phone,
+                "flash_error": "Необходимо дать согласие на обработку персональных данных.",
+            },
+            status_code=400,
+        )
+    order_svc = OrderService(db)
+    checkout_data = await order_svc.prepare_checkout(current_user, contact_phone)
+    if not checkout_data:
+        return RedirectResponse("/orders/cart", status_code=303)
+    request.session["checkout"] = checkout_data
+    return RedirectResponse("/orders/payment", status_code=status.HTTP_303_SEE_OTHER)
+
+
+@router.get("/payment", response_class=HTMLResponse)
+async def payment_from_session(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    current_user: UserModel = Depends(get_current_user),
+    cart_count: int = Depends(get_cart_count),
+):
+    checkout = request.session.get("checkout")
+    if not checkout or not checkout.get("items"):
+        return RedirectResponse("/orders/cart", status_code=303)
+    return templates.TemplateResponse(
+        "payment.html",
+        {
+            "request": request,
+            "order": None,
+            "checkout": checkout,
+            "current_user": current_user,
+            "cart_count": cart_count,
+        },
+    )
+
+
+@router.post("/confirm", response_class=HTMLResponse)
+async def confirm_order_from_session(
     request: Request,
     db: AsyncSession = Depends(get_db),
     current_user: UserModel = Depends(get_current_user),
 ):
+    checkout = request.session.pop("checkout", None)
+    if not checkout or not checkout.get("items"):
+        return RedirectResponse("/orders/cart", status_code=303)
     order_svc = OrderService(db)
-    created_order = await order_svc.get_checkout_order(current_user)
-    pay_url = request.url_for("payment_page", order_id=created_order)
-    return RedirectResponse(url=pay_url, status_code=status.HTTP_303_SEE_OTHER)
+    try:
+        order_id = await order_svc.create_order_from_checkout(current_user, checkout)
+    except Exception:
+        request.session["checkout"] = checkout
+        return RedirectResponse(
+            "/orders/payment?error=1", status_code=303
+        )
+    return RedirectResponse(
+        f"/orders/{order_id}?confirmed=true", status_code=303
+    )
 
 
 @router.get("/payment/{order_id}", response_class=HTMLResponse, name="payment_page")
@@ -58,8 +147,8 @@ async def confirm_order_payment(
     db: AsyncSession = Depends(get_db),
     current_user: UserModel = Depends(get_current_user),
 ):
-    order_service = OrderService(db)
-    await order_service.confirm_payment(order_id, current_user.id)
+    order_svc = OrderService(db)
+    await order_svc.confirm_payment(order_id, current_user.id)
     return RedirectResponse(f"/orders/{order_id}?confirmed=true", status_code=303)
 
 
@@ -95,6 +184,35 @@ async def remove_from_cart(
     return RedirectResponse(url=url, status_code=303)
 
 
+@router.get("/{order_id}/receipt", response_class=HTMLResponse)
+async def order_receipt(
+    order_id: int,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    current_user: UserModel = Depends(get_current_user),
+):
+    order_svc = OrderService(db)
+    order, _ = await order_svc.get_order_for_user(order_id, current_user)
+    if not order:
+        return RedirectResponse("/orders/cart", status_code=302)
+    receipt_headers, receipt_rows = build_receipt_table(order)
+    return templates.TemplateResponse(
+        "order/receipt.html",
+        {
+            "request": request,
+            "current_user": current_user,
+            "order": order,
+            "receipt_title": RECEIPT_TITLE,
+            "receipt_meta": build_receipt_meta(order),
+            "receipt_headers": receipt_headers,
+            "receipt_rows": receipt_rows,
+            "receipt_total_label": RECEIPT_TOTAL_LABEL,
+            "receipt_total": build_receipt_total(order),
+            "receipt_footer": RECEIPT_FOOTER,
+        },
+    )
+
+
 @router.get("/{order_id}", response_class=HTMLResponse)
 async def order_page(
     order_id: int,
@@ -104,12 +222,9 @@ async def order_page(
     cart_count: int = Depends(get_cart_count),
 ):
     order_svc = OrderService(db)
+    product_svc = ProductService(db)
     order, is_admin = await order_svc.get_order_for_user(order_id, current_user)
-    available_products = (
-        await db.scalars(
-            select(Product).where(Product.stock > 0).order_by(Product.name)
-        )
-    ).all()
+    available_products = await product_svc.get_available_products_for_order()
     return templates.TemplateResponse(
         "/order/order_detail.html",
         {
@@ -131,11 +246,9 @@ async def add_to_cart_api(
     db: AsyncSession = Depends(get_db),
     current_user: UserModel = Depends(get_current_user),
 ):
-    product_svc = ProductService(db)
     cart_svc = CartService(db)
-    product = await product_svc.crud.get_product_active(product_id)
-    final_qty = await cart_svc.cart_update_api(
-        current_user.id, product_id, quantity, product, add_mode=True
+    final_qty = await cart_svc.add_or_set_cart_item(
+        current_user.id, product_id, quantity, add_mode=True
     )
     return {"quantity": final_qty}
 
@@ -147,11 +260,9 @@ async def set_cart_quantity_api(
     db: AsyncSession = Depends(get_db),
     current_user: UserModel = Depends(get_current_user),
 ):
-    product_svc = ProductService(db)
     cart_svc = CartService(db)
-    product = await product_svc.crud.get_product_active(product_id)
-    final_qty = await cart_svc.cart_update_api(
-        current_user.id, product_id, quantity, product, add_mode=False
+    final_qty = await cart_svc.add_or_set_cart_item(
+        current_user.id, product_id, quantity, add_mode=False
     )
     return {"quantity": final_qty}
 

@@ -74,7 +74,7 @@ class CrudCart(CRUDBase):
         )
         return result or 0
 
-    async def get_cart_items(self, user_id: int, ordered: bool = False) -> CartItem:
+    async def get_cart_items(self, user_id: int, ordered: bool = False) -> list[CartItem]:
         stmt = (
             select(self.model)
             .options(selectinload(self.model.product))
@@ -85,7 +85,7 @@ class CrudCart(CRUDBase):
         result = await self.session.execute(stmt)
         return result.scalars().all()
 
-    async def get_cart_item(self, user_id: int, product_id: int) -> CartItem:
+    async def get_cart_item(self, user_id: int, product_id: int) -> CartItem | None:
         result = await self.session.scalars(
             select(self.model).where(
                 and_(self.model.user_id == user_id, self.model.product_id == product_id)
@@ -98,7 +98,7 @@ class CrudCart(CRUDBase):
             delete(self.model).where(self.model.user_id == user_id)
         )
 
-    async def get_cart_item_by_id(self, user_id: int, item_id: int) -> CartItem:
+    async def get_cart_item_by_id(self, user_id: int, item_id: int) -> CartItem | None:
         result = await self.session.scalars(
             select(self.model).where(
                 and_(self.model.id == item_id, self.model.user_id == user_id)

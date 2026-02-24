@@ -3,11 +3,18 @@
 {% block title %}{{ product.name }} - PillStore{% endblock %}
 
 {% block content %}
-<a href="/products" class="btn btn-secondary mb-3">
+<a href="/products" class="btn btn-secondary mb-3" id="back-link"
+   onclick="event.preventDefault(); (window.history.length > 1) ? history.back() : (location.href='/products');">
     <i class="fas fa-arrow-left"></i> Назад
 </a>
-<div class="row">
-    <div class="col-md-6">
+<div class="row" id="product-detail-favorites" data-favorite-ids="{{ favorite_ids | default([]) | join(',') }}" data-user-logged-in="{{ '1' if current_user else '0' }}">
+    <div class="col-md-6 position-relative">
+        <button type="button" class="btn-favorite position-absolute top-0 end-0 m-2 p-2 border-0 bg-transparent"
+                data-product-id="{{ product.id }}"
+                aria-label="Избранное"
+                title="Избранное">
+            <i class="fas fa-heart fa-lg {{ 'text-danger' if product.id in (favorite_ids or []) else 'text-muted' }}"></i>
+        </button>
         <img src="{{ product.image_url or 'https://via.placeholder.com/400x400/eee?text=Фото' }}" 
              class="img-fluid rounded shadow-lg" alt="{{ product.brand }}, {{ product.name }}">
     </div>
@@ -16,15 +23,15 @@
         <h2 class="text-primary">{{ "%.2f"|format(product.price) }} ₽</h2>
         <p><strong>Бренд:</strong> {{ product.brand or 'Не указан' }}</p>
         {% if current_user.role == 'seller' %}
-        <p><strong>URL:</strong> <a href="{{ product.url }}" target="_blank">{{ product.url }}</a></p>
+        <p><strong>URL:</strong> <a href="{{ product.url if product.url else '' }}" target="_blank">{{ product.url if product.url else '' }}</a></p>
         {% endif %}
         <div class="mt-4 cart-controls" data-product-id="{{ product.id }}">
             {% set qty = product.cart_qty or 0 %}
             {% if qty == 0 %}
                 <div class="d-flex align-items-end gap-2 mb-3">
                     <label class="mb-0 me-2 fw-bold">Количество:</label>
-                    <input id="quantity-input" type="number" value="1" min="1" max="{{ product.stock }}"
-                        class="form-control form-control-sm" style="width: 50px;">
+                    <input id="quantity-input" type="number" value="1" min="1" max="{{ product.available_stock }}"
+                        class="form-control form-control-sm input-qty-50">
                     <button class="btn btn-success ms-2 js-add-to-cart" type="button">
                         <i class="fas fa-shopping-cart"></i>
                     </button>
@@ -32,7 +39,7 @@
             {% else %}
             <div class="mb-3 d-flex align-items-center gap-2">
                 <label class="mb-0 me-2 fw-bold">Количество:</label>
-                <div class="btn-group" style="height: 38px;">
+                <div class="btn-group btn-group-fixed-height">
                     <button class="btn btn-outline-secondary btn-sm js-decrease h-100">−</button>
                     <span class="px-3 align-self-center js-qty">{{ qty }}</span>
                     <button class="btn btn-outline-secondary btn-sm js-increase h-100">+</button>
@@ -45,7 +52,9 @@
         </div>
     </div>
 <div class="container mt-4">
+    {% if product.description %}
     <div class="row">
+        {% set right_section_titles = ("Пищевая ценность", "Информация о добавке", "Ингредиенты") %}
         <div class="col-md-8">
             <div class="card shadow-sm rounded-3">
                 <div class="card-header bg-light py-2 px-3 border-bottom rounded-top-3">
@@ -54,16 +63,8 @@
                     </h5>
                 </div>
                 <div class="card-body p-3 pt-0 text-justify">
-                    <div class="lh-lg small w-100 text-wrap" 
-                        style="
-                            overflow-wrap: break-word !important; 
-                            word-break: break-word !important; 
-                            white-space: pre-wrap; 
-                            hyphens: auto;
-                            line-height: 1.6; 
-                            max-width: 100%;
-                        ">
-                        {% for section_name, items in product.description.items() if section_name != "Пищевая ценность" %}
+                    <div class="lh-lg small w-100 text-wrap product-detail-desc-content">
+                        {% for section_name, items in product.description.items() if section_name not in right_section_titles %}
                         <div class="section mb-3 pb-2 border-bottom mt-3">
                             <h6 class="fw-bold text-primary mb-2">{{ section_name }}:</h6>
                             {% for item in items %}
@@ -76,33 +77,30 @@
             </div>
         </div>
         <div class="col-md-4">
-            {% if product.description.get("Пищевая ценность") %}
-            <div class="card border-0 shadow-sm rounded-3 w-100">
+            {% for right_title in right_section_titles %}
+            {% set items = product.description.get(right_title) %}
+            {% if items %}
+            <div class="card border-0 shadow-sm rounded-3 w-100 mb-3">
                 <div class="card-header bg-light py-2 px-3 border-bottom rounded-top-3">
-                    <h5 class="mb-0 fw-semibold text-dark">
-                        <i class="fas fa-info-circle me-2"></i>Пищевая ценность
-                    </h5>
+                    <h5 class="mb-0 fw-semibold text-dark"><i class="fas fa-info-circle me-2"></i>{{ right_title }}</h5>
                 </div>
                 <div class="card-body p-3 pt-0 text-justify">
-                    <div class="lh-lg small w-100 text-wrap mt-3" 
-                        style="
-                            overflow-wrap: break-word !important; 
-                            word-break: break-word !important; 
-                            white-space: pre-wrap; 
-                            hyphens: auto;
-                            line-height: 1.6; 
-                            max-width: 100%;
-                            padding-left: 1.5rem
-                        ">
-                        {% for item in product.description["Пищевая ценность"] %}
-                        <li class="mb-1">{{ item | replace('\n', '<br>') | safe }}</li>
-                        {% endfor %}
+                    <div class="lh-lg small w-100 text-wrap mt-3 product-detail-desc-content">
+                        {% if right_title == "Информация о добавке" or right_title == "Пищевая ценность" %}
+                        <ul class="list-unstyled mb-0">
+                            {% for item in items %}<li class="mb-1">{{ item | replace('\n', '<br>') | safe }}</li>{% endfor %}
+                        </ul>
+                        {% else %}
+                        {% for item in items %}<p class="mb-1">{{ item | replace('\n', '<br>') | safe }}</p>{% endfor %}
+                        {% endif %}
                     </div>
                 </div>
             </div>
             {% endif %}
+            {% endfor %}
         </div>
     </div>
+    {% endif %}
 </div>
 
 
@@ -110,4 +108,5 @@
 {% endblock %}
 {% block scripts %}
    <script src="{{ url_for('static', path='/js/count_cart.js') }}"></script>
+   <script src="{{ url_for('static', path='/js/favorites.js') }}"></script>
 {% endblock %}

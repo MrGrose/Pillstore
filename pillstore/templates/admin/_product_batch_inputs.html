@@ -1,0 +1,18 @@
+<div class="d-flex flex-wrap align-items-end gap-2">
+    {% if section_label %}
+    <div class="w-100"><label class="form-label fw-bold pb-2 cursor-pointer">{{ section_label }}</label></div>
+    {% endif %}
+    <div>
+        <label class="form-label small mb-0">Кол-во</label>
+        <input type="number" name="{{ quantity_name }}" min="{{ 1 if as_form else 0 }}" value="{{ quantity_value }}"
+               class="form-control form-control-sm input-qty-sm" {{ 'required' if as_form else '' }}>
+    </div>
+    <div>
+        <label class="form-label small mb-0">Срок годности</label>
+        <input type="date" name="{{ expiry_name }}" value="{{ expiry_value }}"
+               class="form-control form-control-sm input-date-sm" placeholder="ДД.ММ.ГГГГ">
+    </div>
+    {% if as_form %}
+    <button type="submit" class="btn btn-sm btn-outline-primary">Добавить</button>
+    {% endif %}
+</div>

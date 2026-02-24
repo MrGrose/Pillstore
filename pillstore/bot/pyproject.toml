@@ -1,0 +1,17 @@
+[tool.poetry]
+name = "pillstore-bot"
+version = "0.1.0"
+description = "Telegram bot для Pillstore"
+authors = []
+readme = "README.md"
+package-mode = false
+
+[tool.poetry.dependencies]
+python = "^3.11"
+aiogram = "^3.15"
+aiohttp = "^3.11"
+python-dotenv = "^1.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

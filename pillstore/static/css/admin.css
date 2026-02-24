@@ -29,3 +29,29 @@ select:hover {
     box-shadow: 0 2px 8px rgba(0,0,0,0.1);
     transition: all 0.2s ease;
 }
+
+.admin-form-search {
+    max-width: 600px;
+    margin: 0 auto;
+}
+
+.admin-select-url {
+    width: auto;
+}
+
+.admin-status-select {
+    width: 140px;
+}
+
+.admin-icon-success {
+    font-size: 4rem;
+}
+
+.table-products-admin th:nth-child(4),
+.table-products-admin td:nth-child(4) {
+    min-width: 4rem;
+}
+.table-products-admin th:nth-child(5),
+.table-products-admin td:nth-child(5) {
+    min-width: 6rem;
+}

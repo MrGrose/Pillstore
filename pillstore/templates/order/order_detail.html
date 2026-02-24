@@ -16,9 +16,9 @@
 </div>
 {% endif %}
 
-<div class="container py-5">
+<div class="container py-5 overflow-hidden">
     <div class="row justify-content-center">
-        <div class="col-lg-10">
+        <div class="col-lg-10 min-w-0">
             <div class="d-flex justify-content-between align-items-start mb-4">
                 <div>
                     <h1 class="mb-1">Заказ <strong>#{{ order.id }}</strong></h1>
@@ -27,8 +27,18 @@
                         {% if order.updated_at != order.created_at %}
                             | Обновлён: <strong>{{ order.updated_at.strftime('%d.%m.%Y %H:%M') }}</strong>
                         {% endif %}
+                        {% if order.contact_phone %}
+                            <br>Контакт: <strong>{{ order.contact_phone }}</strong>
+                        {% endif %}
                     </p>
                 </div>
+                {% if current_user.role == 'seller' %}
+                <div>
+                    <a href="/orders/{{ order.id }}/receipt?print=1" target="_blank" class="btn btn-outline-secondary btn-sm">
+                        <i class="fas fa-print me-1"></i>Печать чека
+                    </a>
+                </div>
+                {% endif %}
             </div>
             <div class="card shadow-lg mb-5">
                 <div class="card-header bg-light border-0">
@@ -41,9 +51,8 @@
                     {% for item in order.items %}
                     <div class="row g-0 align-items-center p-4 border-bottom">
                         <div class="col-md-2 p-3 position-relative">
-                            <img src="{{ item.product.image_url or '/static/no-image.jpg' }}" 
-                                class="img-fluid rounded-3 shadow-sm w-100"
-                                style="height: 120px; object-fit: cover;"
+                            <img src="{{ item.product.image_url or '/static/no-image.png' }}" 
+                                class="img-fluid rounded-3 shadow-sm w-100 img-cover-120"
                                 alt="{{ item.product.name }}">
                             <div class="mt-2 text-center">
                                 {% if is_admin %}
@@ -58,9 +67,8 @@
                                 {% endif %}
                             </div>
                         </div>
-                        <div class="col-md-5 p-4">
-                            
-                            <h5 class="mb-2 fw-semibold">{{ item.product.name }}</h5>
+                        <div class="col-md-5 p-4 min-w-0">
+                            <h5 class="mb-2 fw-semibold product-name-wrap">{{ item.product.name }}</h5>
                             <p class="mb-2 text-muted">{{ item.product.brand }}</p>
                             <div class="row text-muted small">
                                 <div class="col-6">
@@ -118,10 +126,11 @@
                     </form>
                 </div>
                 {% endif %}
+            </div>
             <div class="card shadow-lg mb-5">
                 <div class="card-body p-4">
                     <div class="row align-items-center">
-                        <div class="col-md-8">
+                        <div class="col-md-8 min-w-0">
                             <h5 class="mb-2">
                                 {% if order.status == 'paid' or order.status == 'completed' %}
                                     <i class="fas fa-check-circle text-success me-2"></i>

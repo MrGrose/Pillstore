@@ -1,13 +1,16 @@
-from fastapi import APIRouter, Depends, Form, HTTPException, status
+from fastapi import APIRouter, Depends, Form, HTTPException, Query, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_db
-from app.core.security import get_current_user
+from app.core.mini_app_token import MINI_TOKEN_EXPIRY_SEC, create_mini_token
+from app.core.security import get_current_user, get_current_user_any
 from app.exceptions.handlers import BusinessError
 from app.models.users import User as UserModel
 from app.schemas.auth import (
+    LinkTelegramBody,
     MessageResponse,
+    MiniAppTokenResponse,
     TokenResponse,
     UserCreate,
     UserUpdateRequest,
@@ -18,11 +21,51 @@ from app.services.user_service import UserService
 auth_router = APIRouter(prefix="/api/v2", tags=["API v2 Auth"])
 
 
+@auth_router.get("/auth/check-email")
+async def check_email(
+    email: str = Query(..., description="Email для проверки"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Проверка наличия пользователя по email (для бота)."""
+    user_svc = UserService(db)
+    user = await user_svc.get_user_by_email_optional(email.strip())
+    return {"exists": user is not None}
+
+
+@auth_router.post("/auth/link-telegram", response_model=MessageResponse)
+async def link_telegram(
+    body: LinkTelegramBody,
+    db: AsyncSession = Depends(get_db),
+):
+    """Привязать Telegram к пользователю по email (для бота после проверки email)."""
+    user_svc = UserService(db)
+    user = await user_svc.get_user_by_email_optional(body.email.strip())
+    if not user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Пользователь не найден")
+    await user_svc.link_telegram(user.id, body.telegram_id)
+    return MessageResponse(message="Telegram привязан")
+
+
+@auth_router.post("/auth/mini-app-token", response_model=MiniAppTokenResponse)
+async def create_mini_app_token(
+    current_user: UserModel = Depends(get_current_user_any),
+):
+    """Выдать одноразовый токен для входа в Mini App по ссылке (бот передаёт X-Telegram-User-Id)."""
+    telegram_id = current_user.telegram_id
+    if telegram_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="У пользователя не привязан Telegram",
+        )
+    token = create_mini_token(int(telegram_id))
+    return MiniAppTokenResponse(token=token, expires_in=MINI_TOKEN_EXPIRY_SEC)
+
+
 @auth_router.get("/users/me", response_model=UserResponse)
 async def get_current_user_endpoint(
-    current_user: UserModel = Depends(get_current_user),
+    current_user: UserModel = Depends(get_current_user_any),
 ):
-    """Текущий пользователь."""
+    """Текущий пользователь (JWT или X-Telegram-User-Id для бота)."""
     return current_user
 
 

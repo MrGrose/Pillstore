@@ -50,4 +50,4 @@ format:
 	poetry run black app
 
 test:
-	poetry run pytest
+	PYTHONPATH=. poetry run pytest app/tests -v

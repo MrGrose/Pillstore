@@ -17,6 +17,21 @@ class ProductSchema(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+def product_to_schema(p) -> ProductSchema:
+    return ProductSchema(
+        id=p.id,
+        name=p.name,
+        brand=p.brand or "",
+        price=p.price,
+        image_url=p.image_url or "",
+        stock=p.stock,
+    )
+
+
+class ProductDetailSchema(ProductSchema):
+    description: str | None = None
+
+
 class ProductCreate(BaseModel):
     name: str = Field(
         ...,
@@ -36,6 +51,7 @@ class ProductCreate(BaseModel):
     price: Decimal = Field(
         ..., gt=0, description="Цена товара (больше 0)", decimal_places=2
     )
+    cost: Decimal = Field(0, ge=0, description="Себестоимость за единицу")
     url: str | None = None
     stock: int = Field(..., ge=0, description="Остаток на складе")
     category_id: list[int] = Field(default_factory=list)
@@ -87,11 +103,12 @@ class ProductImport(BaseModel):
     price: Decimal
     url: str
     images: str | None = None
-    stock: int
+    stock: int = 0
     mpn: str | None = None
     category_path: list[str]
     description_left: str | None = None
     description_right: str | None = None
+    is_active: bool = True
 
 
 class ProductImportList(BaseModel):
@@ -106,6 +123,7 @@ class ProductRead(BaseModel):
     image_url: str | None = None
     cart_qty: int = 0
     stock: int = 0
+    available_stock: int | None = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -138,11 +156,14 @@ class ProductUpdate(BaseModel):
     name_en: str = ""
     brand: str = ""
     price: float | None = None
+    cost: float | None = None
     stock: int | None = None
+    url: str | None = None
     is_active: bool = True
     category_ids: list[int] = []
     description_left: str = ""
     description_right: str = ""
+    created_at: datetime | None = None
 
 
 class ProductStockResponse(BaseModel):
@@ -194,7 +215,6 @@ class ProductUpdateAPI(BaseModel):
     description_left: str = ""
     description_right: str = ""
     created_at: datetime | None = None
-    expiry_at: datetime | None = None
 
     @classmethod
     def as_form(  # noqa: C901
@@ -209,7 +229,6 @@ class ProductUpdateAPI(BaseModel):
         description_left: str = Form(""),
         description_right: str = Form(""),
         created_at: str | None = Form(None),
-        expiry_at: str | None = Form(None),
     ) -> "ProductUpdateAPI":
 
         cat_ids = []
@@ -224,13 +243,6 @@ class ProductUpdateAPI(BaseModel):
                 )
             except ValueError:
                 pass
-
-        expiry_at_dt = None
-        if expiry_at and expiry_at not in ["", "string", "null"]:
-            try:
-                expiry_at_dt = datetime.fromisoformat(expiry_at.replace("Z", "+00:00"))
-            except ValueError:
-                pass
         return cls(
             name=name,
             name_en=name_en,
@@ -242,7 +254,6 @@ class ProductUpdateAPI(BaseModel):
             description_left=description_left,
             description_right=description_right,
             created_at=created_at_dt,
-            expiry_at=expiry_at_dt,
         )
 
 

@@ -1,6 +1,7 @@
 from app.core.config import settings
 from app.db_crud.base import CRUDBase
-from app.models.orders import OrderItem
+from app.db_crud.order_crud import CrudOrder
+from app.models.orders import Order, OrderItem
 from app.models.products import Product
 from app.schemas.product import PageUrls, ProductPagination, ProductUpdate
 from fastapi import HTTPException, Request, status
@@ -68,9 +69,11 @@ class CrudProduct(CRUDBase):
 
         if is_active is not None:
             stmt = stmt.where(self.model.is_active == is_active)
+            if is_active:
+                stmt = stmt.where(self._available_gt_zero())
         else:
             stmt = stmt.where(self.model.is_active.is_(True)).where(
-                self.model.stock > 0
+                self._available_gt_zero()
             )
 
         if category_id:
@@ -193,12 +196,17 @@ class CrudProduct(CRUDBase):
 
         return product
 
-    async def get_product_available(self, product_id: int, quantity: int) -> Product:
-        return await self.session.scalar(
-            select(self.model).where(
-                self.model.id == product_id, self.model.stock >= quantity
-            )
-        )
+    async def get_product_available(
+        self, product_id: int, quantity: int
+    ) -> Product | None:
+        product = await self.session.get(self.model, product_id)
+        if not product:
+            return None
+        reserved = await CrudOrder(self.session, Order).get_pending_reserved(product_id)
+        available = (product.stock or 0) - reserved
+        if available < quantity:
+            return None
+        return product
 
     async def count_order_items(self, product_id: int) -> int:
         result = await self.session.scalar(
@@ -230,27 +238,49 @@ class CrudProduct(CRUDBase):
         )
         return result.first()
 
+    def _reserved_subq(self):
+        return (
+            select(func.coalesce(func.sum(OrderItem.quantity), 0))
+            .select_from(OrderItem)
+            .join(Order, Order.id == OrderItem.order_id)
+            .where(
+                OrderItem.product_id == self.model.id,
+                Order.status == "pending",
+            )
+            .correlate(self.model)
+            .scalar_subquery()
+        )
+
+    def _available_gt_zero(self):
+        return (self.model.stock - self._reserved_subq()) > 0
+
     async def get_products_paginated(
         self, is_active: bool, page: int = 1, page_size: int = 20
     ) -> tuple[list[Product], int]:
         total = await self.get_products_count(is_active)
-        stmt = (
-            select(self.model)
-            .where(self.model.is_active == is_active)
-            .order_by(self.model.id.asc())
-            .offset((page - 1) * page_size)
-            .limit(page_size)
-        )
+        stmt = select(self.model).where(self.model.is_active == is_active)
+        if is_active:
+            stmt = stmt.where(self._available_gt_zero())
+        stmt = stmt.order_by(self.model.id.asc()).offset((page - 1) * page_size).limit(page_size)
         items = list((await self.session.scalars(stmt)).all())
         return items, total
 
     async def get_products_count(self, is_active: bool) -> int:
-        result = await self.session.scalar(
-            select(func.count())
-            .select_from(self.model)
-            .where(self.model.is_active == is_active)
-        )
+        stmt = select(func.count()).select_from(self.model).where(self.model.is_active == is_active)
+        if is_active:
+            stmt = stmt.where(self._available_gt_zero())
+        result = await self.session.scalar(stmt)
         return result or 0
+
+    async def get_available_for_order(self) -> list:
+        stmt = (
+            select(self.model)
+            .where(self.model.is_active.is_(True))
+            .where(self._available_gt_zero())
+            .order_by(self.model.name)
+        )
+        result = await self.session.scalars(stmt)
+        return list(result.all())
 
     async def inactive_product(self, product_id: int) -> Product:
         product = await self.get_by_id(product_id)

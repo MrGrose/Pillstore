@@ -1,0 +1,16 @@
+<div class="card sticky-top sidebar-sticky-offset">
+    <div class="list-group list-group-flush">
+        <a href="/admin?tab=dashboard" class="list-group-item list-group-item-action {{ 'active' if tab == 'dashboard' else '' }}">
+            <i class="fas fa-chart-bar me-2"></i>Дашборд
+        </a>
+        <a href="/admin?tab=products" class="list-group-item list-group-item-action {{ 'active' if tab == 'products' else '' }}">
+            <i class="fas fa-box me-2"></i>Товары
+        </a>
+        <a href="/admin?tab=orders" class="list-group-item list-group-item-action {{ 'active' if tab == 'orders' else '' }}">
+            <i class="fas fa-shopping-bag me-2"></i>Заказы
+        </a>
+        <a href="/admin?tab=users" class="list-group-item list-group-item-action {{ 'active' if tab == 'users' else '' }}">
+            <i class="fas fa-users me-2"></i>Пользователи
+        </a>
+    </div>
+</div>

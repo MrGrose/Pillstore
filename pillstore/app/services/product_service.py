@@ -1,33 +1,28 @@
 from decimal import Decimal
-from fastapi import HTTPException, Request, UploadFile, status
-from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.cart_items import CartItem
-from app.models.users import User
-from app.models.products import Product
-from app.models.categories import Category
-
+from app.core.logger import logger
 from app.db_crud.cart_crud import CrudCart
-from app.db_crud.products_crud import CrudProduct
 from app.db_crud.category_crud import CrudCategory
-
-from app.schemas.product import (
-    ProductCreate,
-    ProductCreateAPI,
-    ProductPagination,
-    ProductUpdateAPI,
-)
-from app.schemas.category import CategoryTreeOut
-
+from app.db_crud.order_crud import CrudOrder
+from app.db_crud.products_crud import CrudProduct
 from app.exceptions.handlers import ProductNotFoundError
-
-from app.utils.utils import (
-    formatted_description,
-    save_image_from_url,
-    remove_product_image,
-    save_product_image,
-)
+from app.models.cart_items import CartItem
+from app.models.categories import Category
+from app.models.orders import Order
+from app.models.products import Product
+from app.models.users import User
+from app.schemas.category import CategoryTreeOut
+from app.exceptions.handlers import BusinessError
+from app.schemas.product import (ProductCreate, ProductCreateAPI,
+                                 ProductImportList, ProductPagination,
+                                 ProductRead, ProductUpdateAPI)
+from app.utils.description_parser import formatted_description
 from app.utils.iherb_scraper import IHerbScraper
+from app.utils.utils import (remove_product_image, save_image_from_url,
+                             save_product_image)
+from fastapi import HTTPException, Request, UploadFile, status
+from sqlalchemy import or_, select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 
 class ProductService:
@@ -35,6 +30,7 @@ class ProductService:
         self.session = session
         self.crud = CrudProduct(session=session, model=Product)
         self.cat = CrudCategory(session=session, model=Category)
+        self.order_crud = CrudOrder(session=session, model=Order)
         self.scraper = IHerbScraper()
 
     async def get_products_page(
@@ -45,19 +41,79 @@ class ProductService:
         request: Request,
         category_id: int | None = None,
     ) -> ProductPagination:
-        return await self.crud.paginate_products(
+        pagination = await self.crud.paginate_products(
             page, page_size, search, request, category_id
         )
+        if pagination.items:
+            ids = [p.id for p in pagination.items]
+            reserved = await self.order_crud.get_pending_reserved_map(ids)
+            items_with_available = [
+                ProductRead(
+                    **p.model_dump(exclude={"available_stock"}),
+                    available_stock=(p.stock or 0) - reserved.get(p.id, 0),
+                )
+                for p in pagination.items
+            ]
+            return ProductPagination(
+                **pagination.model_dump(exclude={"items"}),
+                items=items_with_available,
+            )
+        return pagination
+
+    async def get_product_stock(self, product_id: int) -> int:
+        product = await self.crud.get_by_id(product_id)
+        return (product.stock or 0) if product else 0
+
+    async def get_product_stock_info(
+        self, product_id: int
+    ) -> dict:
+        product = await self.crud.get_by_id(product_id)
+        if not product:
+            raise ProductNotFoundError(product_id)
+        reserved = await self.order_crud.get_pending_reserved(product_id)
+        available = (product.stock or 0) - reserved
+        return {
+            "product_id": product.id,
+            "stock": available,
+            "is_active": product.is_active,
+            "in_stock": available > 0,
+        }
+
+    async def get_product_with_categories(self, product_id: int) -> Product | None:
+        return await self.crud.get_by_id_with_categories(product_id)
+
+    @staticmethod
+    def format_description_for_api(product: Product) -> str | None:
+        raw = getattr(product, "description", None)
+        if raw is None:
+            return None
+        if isinstance(raw, dict):
+            parts = []
+            for title, blocks in raw.items():
+                if isinstance(blocks, list):
+                    parts.append(title + "\n" + "\n".join(str(b) for b in blocks))
+                else:
+                    parts.append(str(blocks))
+            return "\n\n".join(parts) if parts else None
+        return str(raw)
+
+    async def hard_delete_product(self, product_id: int) -> None:
+        product = await self.crud.get_by_id(product_id)
+        if not product:
+            raise ProductNotFoundError(product_id)
+        await self.crud.delete(product_id)
+
+    async def get_available_products_for_order(self) -> list[Product]:
+        return await self.crud.get_available_for_order()
 
     async def get_product_detail(self, product_id: int, user: User | None) -> Product:
         product = await self.crud.get_by_id(product_id)
         if not product:
             raise ProductNotFoundError(product_id)
+        reserved = await self.order_crud.get_pending_reserved(product_id)
+        product.available_stock = (product.stock or 0) - reserved
         if user:
             await self.cart_qty_for_product(product_id, user, product)
-            product.available_stock = product.stock - getattr(product, "cart_qty", 0)
-        else:
-            product.available_stock = product.stock
         product.description = await formatted_description(product)
         return product
 
@@ -96,6 +152,7 @@ class ProductService:
         scraper = IHerbScraper()
         product_data = scraper.parse_product_page(url)
         if not product_data:
+            logger.error("Импорт iHerb: не удалось распарсить url=%s", url)
             return "Не удалось распарсить", "error"
 
         product_create = ProductCreate(
@@ -192,10 +249,7 @@ class ProductService:
     ) -> tuple[str, str]:
         product = await self.crud.get_by_id_with_categories(product_id)
         if not product:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Продукт с id:{product_id} не найден",
-            )
+            raise ProductNotFoundError(product_id)
 
         update_dict = data.model_dump(exclude_unset=True)
         for key, value in update_dict.items():
@@ -223,6 +277,12 @@ class ProductService:
         seller_id: int,
         image: UploadFile | None = None,
     ) -> Product:
+        if data.url:
+            existing = await self.crud.get_by_url(data.url)
+            if existing:
+                raise BusinessError(
+                    "Товар", "Продукт с таким URL-адресом уже существует"
+                )
 
         category_ids = []
         if data.categories:
@@ -258,10 +318,68 @@ class ProductService:
 
         return product
 
-    async def api_inactive_product(self, product_id: int) -> tuple[str, str]:
+    async def api_inactive_product(self, product_id: int) -> Product | None:
         product = await self.crud.get_by_id(product_id)
-        product_inactive = await self.crud.inactive_product(product.id)
-        return (
-            f"Продукт с id:{product_inactive.id} {product_inactive.name} не активен",
-            "success",
-        )
+        if not product:
+            return None
+        await self.crud.inactive_product(product.id)
+        return product
+
+    async def import_products_from_list(
+        self, import_data: ProductImportList, seller_id: int
+    ) -> dict:
+        created = []
+        for product_data in import_data.products:
+            existing = await self.crud.get_by_url(product_data.url)
+            if existing:
+                continue
+            image_url = (
+                await save_image_from_url(product_data.images)
+                if product_data.images and product_data.images.startswith("http")
+                else product_data.images
+            )
+            categories = []
+            parent = None
+            for cat_name in product_data.category_path[1:]:
+                cat_result = await self.session.scalars(
+                    select(Category).where(
+                        or_(
+                            Category.name == cat_name,
+                            Category.name.ilike(f"%{cat_name}%"),
+                        )
+                    )
+                )
+                cat = cat_result.first()
+                if not cat:
+                    cat = Category(
+                        name=cat_name,
+                        parent_id=parent.id if parent else None,
+                        is_active=True,
+                    )
+                    self.session.add(cat)
+                    await self.session.flush()
+                categories.append(cat)
+                parent = cat
+            db_product = Product(
+                name=product_data.name,
+                name_en=product_data.name_en or "",
+                brand=product_data.brand or "",
+                price=product_data.price,
+                url=product_data.url,
+                image_url=image_url,
+                description_left=product_data.description_left or "",
+                description_right=product_data.description_right or "",
+                stock=product_data.stock,
+                is_active=product_data.is_active,
+                seller_id=seller_id,
+                category_id=[c.id for c in categories],
+                categories=categories,
+                mpn=product_data.mpn,
+            )
+            self.session.add(db_product)
+            created.append(db_product)
+        await self.session.commit()
+        return {
+            "imported": len(created),
+            "skipped": len(import_data.products) - len(created),
+        }

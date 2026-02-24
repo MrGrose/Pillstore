@@ -19,7 +19,7 @@ services:
 
   api:
     build: .
-    command: poetry run uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    command: poetry run uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload --no-access-log
     container_name: pillstore-api
     ports:
       - "8000:8000"
@@ -29,7 +29,7 @@ services:
       - ./logs:/app/logs
       - ./static:/app/static
       - ./media:/app/media
-      - ./app/tests_data:/app/tests_data
+      - ./app/test_data:/app/app/test_data
       - ./app:/app/app
       - ./templates:/app/templates
     depends_on:

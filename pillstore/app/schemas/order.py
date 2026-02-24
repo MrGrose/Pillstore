@@ -40,3 +40,31 @@ class OrderList(BaseModel):
     page_size: int = Field(ge=1, description="Размер страницы")
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class CheckoutBody(BaseModel):
+    personal_data_consent: bool = Field(
+        False, description="Согласие на обработку персональных данных"
+    )
+    contact_phone: str | None = Field(
+        None, max_length=20, description="Контактный телефон"
+    )
+
+
+class OrderCheckoutResponse(BaseModel):
+    order: OrderSchema = Field(..., description="Созданный заказ")
+    order_url: str = Field(..., description="URL для получения заказа")
+    payment_url: str = Field(..., description="URL для получения информации об оплате")
+
+
+class OrderItemAddRequest(BaseModel):
+    product_id: int = Field(..., ge=1, description="ID товара")
+    quantity: int = Field(1, ge=1, le=99, description="Количество")
+
+
+class OrderActionResponse(BaseModel):
+    message: str = Field(..., description="Результат операции")
+    order: OrderSchema | None = Field(None, description="Обновлённый заказ (если есть)")
+    order_deleted: bool = Field(
+        False, description="Истина, если заказ удалён (после возврата всех позиций)"
+    )

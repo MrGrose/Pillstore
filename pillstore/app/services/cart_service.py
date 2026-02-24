@@ -3,11 +3,12 @@ from datetime import datetime, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db_crud.cart_crud import CrudCart
+from app.db_crud.order_crud import CrudOrder
 from app.db_crud.products_crud import CrudProduct
-
 from app.models.cart_items import CartItem
-from app.models.users import User
+from app.models.orders import Order
 from app.models.products import Product
+from app.models.users import User
 
 from app.schemas.product import ProductRead
 from app.exceptions.handlers import (
@@ -22,6 +23,7 @@ class CartService:
         self.session = session
         self.crud = CrudCart(session=session, model=CartItem)
         self.product_crud = CrudProduct(session=session, model=Product)
+        self.order_crud = CrudOrder(session=session, model=Order)
 
     async def cart_count(self, user: User | None, products: list[ProductRead]) -> int:
         return await self.crud.cart_count(user, products)
@@ -31,10 +33,16 @@ class CartService:
         product = await self.product_crud.get_by_id(product_id)
         if not product:
             raise ProductNotFoundError(product_id)
+        reserved = await self.order_crud.get_pending_reserved(product_id)
+        available = (product.stock or 0) - reserved
         total_qty = current_qty + quantity
 
-        if total_qty > product.stock:
-            raise BusinessError("Корзина", f"Макс еще: {product.stock - current_qty}")
+        if total_qty > available:
+            can_add = max(0, available - current_qty)
+            raise BusinessError(
+                "Корзина",
+                f"Недостаточно товара. Можно добавить ещё: {can_add} шт.",
+            )
 
         await self.crud.add_or_update(user.id, product_id, total_qty)
         return {"cart_qty": total_qty}
@@ -62,9 +70,12 @@ class CartService:
         product = await self.product_crud.get_by_id(cart_item.product_id)
         if not product:
             raise ProductNotFoundError(cart_item.product_id)
-        if product.stock < quantity:
+        reserved = await self.order_crud.get_pending_reserved(cart_item.product_id)
+        available = (product.stock or 0) - reserved
+        if available < quantity:
             raise BusinessError(
-                "Корзина", f"Недостаточно на складе. Доступно: {product.stock}"
+                "Корзина",
+                f"Недостаточно товара на складе. Доступно: {available} шт.",
             )
         cart_item.quantity = quantity
         await self.session.commit()
@@ -79,6 +90,18 @@ class CartService:
         items = await self.crud.get_cart_items(user_id, ordered=False)
         return sum(item.quantity for item in items)
 
+    async def add_or_set_cart_item(
+        self,
+        user_id: int,
+        product_id: int,
+        quantity: int,
+        add_mode: bool = False,
+    ) -> int:
+        product = await self.product_crud.get_product_active(product_id)
+        return await self.cart_update_api(
+            user_id, product_id, quantity, product, add_mode=add_mode
+        )
+
     async def cart_update_api(
         self,
         user_id: int,
@@ -92,7 +115,9 @@ class CartService:
         if add_mode and cart_item:
             quantity += cart_item.quantity
 
-        final_qty = min(quantity, product.stock or 0)
+        reserved = await self.order_crud.get_pending_reserved(product_id)
+        available = (product.stock or 0) - reserved
+        final_qty = min(quantity, available)
 
         if final_qty == 0:
             if cart_item:

@@ -9,7 +9,7 @@ class CrudUser(CRUDBase):
         self.model = model
         self.session = session
 
-    async def get_user(self, user: User) -> User:
+    async def get_user(self, user: User) -> User | None:
         return await self.get_by_id(user.id)
 
     async def get_users(self) -> list[User]:
@@ -17,7 +17,7 @@ class CrudUser(CRUDBase):
         users = list(db_users.all())
         return users
 
-    async def check_user_email(self, email: str) -> User:
+    async def check_user_email(self, email: str) -> User | None:
         db_user = await self.session.scalar(
             select(self.model).where(self.model.email == email)
         )
@@ -30,3 +30,19 @@ class CrudUser(CRUDBase):
             )
         )
         return result.first()
+
+    async def get_user_by_telegram_id(self, telegram_id: int) -> User | None:
+        result = await self.session.scalars(
+            select(self.model).where(
+                self.model.telegram_id == telegram_id,
+                self.model.is_active.is_(True),
+            )
+        )
+        return result.first()
+
+    async def clear_telegram_id(self, telegram_id: int) -> None:
+        from sqlalchemy import update
+        await self.session.execute(
+            update(self.model).where(self.model.telegram_id == telegram_id).values(telegram_id=None)
+        )
+        await self.session.commit()

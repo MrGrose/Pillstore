@@ -12,7 +12,7 @@ class CrudOrder(CRUDBase):
         self.model = model
         self.session = session
 
-    async def get_order_with_items(self, id: int) -> Order:
+    async def get_order_with_items(self, id: int) -> Order | None:
         stmt = (
             select(self.model)
             .options(
@@ -32,11 +32,21 @@ class CrudOrder(CRUDBase):
         total = result.scalar() or Decimal("0")
         order.total_amount = total
 
-    async def get_order_item_detailed(self, order_id: int, item_id: int):
+    async def get_order_item_detailed(self, order_id: int, item_id: int) -> OrderItem | None:
         return await self.session.scalar(
             select(OrderItem)
             .options(selectinload(OrderItem.product), selectinload(OrderItem.order))
             .where(OrderItem.id == item_id, OrderItem.order_id == order_id)
+        )
+
+    async def get_order_item_by_product(
+        self, order_id: int, product_id: int
+    ) -> OrderItem | None:
+        return await self.session.scalar(
+            select(OrderItem).where(
+                OrderItem.order_id == order_id,
+                OrderItem.product_id == product_id,
+            )
         )
 
     async def return_item(self, order_item: OrderItem) -> None:
@@ -54,7 +64,12 @@ class CrudOrder(CRUDBase):
         )
 
     async def add_or_update_item(
-        self, order: Order, product_id: int, quantity: int, product_price: Decimal
+        self,
+        order: Order,
+        product_id: int,
+        quantity: int,
+        product_price: Decimal,
+        unit_cost: Decimal | None = None,
     ) -> None:
         existing_item = next(
             (item for item in order.items if item.product_id == product_id), None
@@ -64,12 +79,15 @@ class CrudOrder(CRUDBase):
             existing_item.quantity += quantity
             existing_item.unit_price = product_price
             existing_item.total_price = existing_item.quantity * product_price
+            if unit_cost is not None:
+                existing_item.unit_cost = unit_cost
         else:
             item = OrderItem(
                 order_id=order.id,
                 product_id=product_id,
                 quantity=quantity,
                 unit_price=product_price,
+                unit_cost=unit_cost,
                 total_price=quantity * product_price,
             )
             self.session.add(item)
@@ -108,6 +126,26 @@ class CrudOrder(CRUDBase):
         result = await self.session.scalars(query)
         return list(result.all())
 
+    async def get_orders_containing_product(
+        self, product_id: int, status_filter: str = "pending"
+    ) -> list[Order]:
+        subq = (
+            select(OrderItem.order_id)
+            .where(OrderItem.product_id == product_id)
+            .distinct()
+        )
+        stmt = (
+            select(self.model)
+            .options(selectinload(self.model.user))
+            .where(
+                self.model.id.in_(subq),
+                self.model.status == status_filter,
+            )
+            .order_by(self.model.created_at.desc())
+        )
+        result = await self.session.scalars(stmt)
+        return list(result.all())
+
     async def get_order(
         self, order_id: int, user_id: int | None = None, load_products: bool = False
     ) -> Order:
@@ -123,6 +161,37 @@ class CrudOrder(CRUDBase):
         stmt = stmt.options(selectinload(self.model.user))
 
         return await self.session.scalar(stmt)
+
+    async def get_pending_reserved(self, product_id: int) -> int:
+        stmt = (
+            select(func.coalesce(func.sum(OrderItem.quantity), 0))
+            .select_from(OrderItem)
+            .join(Order, Order.id == OrderItem.order_id)
+            .where(
+                OrderItem.product_id == product_id,
+                Order.status == "pending",
+            )
+        )
+        result = await self.session.scalar(stmt)
+        return int(result or 0)
+
+    async def get_pending_reserved_map(
+        self, product_ids: list[int]
+    ) -> dict[int, int]:
+        if not product_ids:
+            return {}
+        stmt = (
+            select(OrderItem.product_id, func.sum(OrderItem.quantity))
+            .select_from(OrderItem)
+            .join(Order, Order.id == OrderItem.order_id)
+            .where(
+                Order.status == "pending",
+                OrderItem.product_id.in_(product_ids),
+            )
+            .group_by(OrderItem.product_id)
+        )
+        rows = (await self.session.execute(stmt)).all()
+        return {int(pid): int(qty) for pid, qty in rows}
 
     async def get_orders_paginated(
         self,

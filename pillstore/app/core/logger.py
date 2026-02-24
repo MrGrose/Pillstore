@@ -1,5 +1,6 @@
-import time
 import logging
+import time
+
 from fastapi import Request
 from starlette.middleware.base import BaseHTTPMiddleware
 
@@ -13,12 +14,11 @@ class LoggingMiddleware(BaseHTTPMiddleware):
         process_time = time.time() - start_time
 
         logger.info(
-            f"HTTP {request.method} {request.url.path}",
-            extra={
-                "client_ip": str(request.client.host),
-                "status_code": response.status_code,
-                "response_time": f"{process_time:.3f}s",
-            },
+            "%s %s %s %ss",
+            request.method,
+            request.url.path,
+            response.status_code,
+            f"{process_time:.3f}",
         )
         return response
 
@@ -29,3 +29,4 @@ def setup_logging():
         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
         handlers=[logging.StreamHandler()],
     )
+    logging.getLogger("sqlalchemy.engine").setLevel(logging.WARNING)
