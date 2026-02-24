@@ -4,6 +4,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import templates
 from app.core.deps import get_db
+from app.core.receipt_config import (
+    RECEIPT_FOOTER,
+    RECEIPT_TITLE,
+    RECEIPT_TOTAL_LABEL,
+    build_receipt_meta,
+    build_receipt_table,
+    build_receipt_total,
+)
 from app.core.security import get_current_user
 from app.models.users import User as UserModel
 from app.services.cart import get_cart_count
@@ -139,8 +147,8 @@ async def confirm_order_payment(
     db: AsyncSession = Depends(get_db),
     current_user: UserModel = Depends(get_current_user),
 ):
-    order_service = OrderService(db)
-    await order_service.confirm_payment(order_id, current_user.id)
+    order_svc = OrderService(db)
+    await order_svc.confirm_payment(order_id, current_user.id)
     return RedirectResponse(f"/orders/{order_id}?confirmed=true", status_code=303)
 
 
@@ -187,14 +195,6 @@ async def order_receipt(
     order, _ = await order_svc.get_order_for_user(order_id, current_user)
     if not order:
         return RedirectResponse("/orders/cart", status_code=302)
-    from app.core.receipt_config import (
-        RECEIPT_TITLE,
-        RECEIPT_FOOTER,
-        RECEIPT_TOTAL_LABEL,
-        build_receipt_meta,
-        build_receipt_table,
-        build_receipt_total,
-    )
     receipt_headers, receipt_rows = build_receipt_table(order)
     return templates.TemplateResponse(
         "order/receipt.html",

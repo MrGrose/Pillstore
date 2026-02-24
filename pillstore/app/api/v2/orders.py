@@ -34,7 +34,7 @@ async def api_get_user_orders(
     ),
 ):
     """Список заказов пользователя (те же данные, что в личном кабинете на сайте и в Mini App)."""
-    order_service = OrderService(db)
+    order_svc = OrderService(db)
 
     if all_orders and current_user.role != "seller":
         raise HTTPException(
@@ -42,7 +42,7 @@ async def api_get_user_orders(
             detail="Недостаточно прав для просмотра всех заказов",
         )
 
-    orders, total = await order_service.get_orders_list(
+    orders, total = await order_svc.get_orders_list(
         current_user=current_user,
         page=page,
         page_size=page_size,
@@ -71,10 +71,10 @@ async def api_checkout_order(
             detail="Требуется согласие на обработку персональных данных",
         )
     contact_phone = (body.contact_phone or "").strip() if body else None
-    order_service = OrderService(db)
+    order_svc = OrderService(db)
 
     try:
-        order_id = await order_service.get_checkout_order(
+        order_id = await order_svc.get_checkout_order(
             current_user, contact_phone=contact_phone or None, personal_data_consent=True
         )
     except CartNotFoundError:
@@ -83,7 +83,7 @@ async def api_checkout_order(
             detail="Корзина пуста",
         )
 
-    created_order = await order_service.get_order_with_items(order_id)
+    created_order = await order_svc.get_order_with_items(order_id)
     if not created_order:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -104,10 +104,10 @@ async def api_cancel_order(
     current_user: UserModel = Depends(get_current_user),
 ):
     """Отменить заказ. Только в статусе «ожидает оплаты», только владелец."""
-    order_service = OrderService(db)
+    order_svc = OrderService(db)
 
     try:
-        order = await order_service.cancel_order(order_id, current_user)
+        order = await order_svc.cancel_order(order_id, current_user)
         return order
     except OrderNotFoundError:
         raise HTTPException(
@@ -124,10 +124,10 @@ async def api_get_order(
     current_user: UserModel = Depends(get_current_user),
 ):
     """Получить один заказ по id."""
-    order_service = OrderService(db)
+    order_svc = OrderService(db)
 
     try:
-        order, _is_admin = await order_service.get_order_for_user(
+        order, _is_admin = await order_svc.get_order_for_user(
             order_id, current_user
         )
         return order
@@ -146,10 +146,10 @@ async def api_confirm_order_payment(
     current_user: UserModel = Depends(get_current_user),
 ):
     """Подтвердить оплату заказа."""
-    order_service = OrderService(db)
+    order_svc = OrderService(db)
 
     try:
-        order = await order_service.confirm_payment(order_id, current_user.id)
+        order = await order_svc.confirm_payment(order_id, current_user.id)
         return order
     except OrderNotFoundError:
         raise HTTPException(
@@ -166,10 +166,10 @@ async def api_get_payment_info(
     current_user: UserModel = Depends(get_current_user),
 ):
     """Данные для страницы оплаты заказа."""
-    order_service = OrderService(db)
+    order_svc = OrderService(db)
 
     try:
-        order = await order_service.get_order_for_payment(order_id, current_user.id)
+        order = await order_svc.get_order_for_payment(order_id, current_user.id)
         return {
             "order_id": order.id,
             "total_amount": float(order.total_amount),
@@ -192,11 +192,11 @@ async def api_return_order_item(
     current_user: UserModel = Depends(get_current_user),
 ):
     """Вернуть позицию заказа на склад."""
-    order_service = OrderService(db)
+    order_svc = OrderService(db)
 
     try:
-        await order_service.return_item_to_stock(order_id, item_id, current_user)
-        updated_order = await order_service.get_order_with_items(order_id)
+        await order_svc.return_item_to_stock(order_id, item_id, current_user)
+        updated_order = await order_svc.get_order_with_items(order_id)
         if updated_order:
             return OrderActionResponse(message="Товар возвращён", order=updated_order)
         return OrderActionResponse(
@@ -216,16 +216,16 @@ async def api_add_item_to_order(
     current_user: UserModel = Depends(get_current_user),
 ):
     """Добавить позицию в заказ."""
-    order_service = OrderService(db)
+    order_svc = OrderService(db)
 
     try:
-        await order_service.add_item_to_order(
+        await order_svc.add_item_to_order(
             order_id=order_id,
             item_id=data.product_id,
             quantity=data.quantity,
             current_user=current_user,
         )
-        order, _is_admin = await order_service.get_order_for_user(
+        order, _is_admin = await order_svc.get_order_for_user(
             order_id, current_user
         )
         return order
