@@ -11,9 +11,7 @@ class UserService:
         self.session = session
         self.user_crud = CrudUser(session=session, model=User)
 
-    async def create_admin_user(
-        self, email: str, password: str, role: str
-    ) -> tuple[str, int] | str:
+    async def create_admin_user(self, email: str, password: str, role: str) -> str:
         if await self.user_crud.check_user_email(email):
             raise BusinessError("Пользователь", f"{email} уже существует")
         hashed_password = hash_password(password)
@@ -23,7 +21,7 @@ class UserService:
 
     async def update_admin_user(
         self, user_id: int, email: str, password: str | None, role: str
-    ) -> tuple[str, int] | str:
+    ) -> str:
         user = await self.user_crud.get_by_id(user_id)
         if not user:
             raise UserNotFoundError(user_id)
@@ -38,14 +36,14 @@ class UserService:
         updated_user = await self.user_crud.update(user, update_data)
         return f"Пользователь {updated_user.email} обновлен"
 
-    async def delete_admin_user(self, user_id: int) -> tuple[str, int] | str:
+    async def delete_admin_user(self, user_id: int) -> str:
         user = await self.user_crud.get_by_id(user_id)
         if not user:
             raise UserNotFoundError(user_id)
         await self.user_crud.delete(user_id)
         return f"Пользователь {user.email} (ID {user_id}) удален"
 
-    async def get_user_for_edit(self, user_id: int) -> tuple[str, int] | User:
+    async def get_user_for_edit(self, user_id: int) -> User:
         user = await self.user_crud.get_by_id(user_id)
         if not user:
             raise UserNotFoundError(user_id)

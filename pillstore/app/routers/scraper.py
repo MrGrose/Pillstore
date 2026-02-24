@@ -25,6 +25,6 @@ async def iherb_import(
     current_user: User = Depends(get_current_seller),
 ):
     url = _normalize_iherb_url(url)
-    product_service = ProductService(db)
-    message, msg_type = await product_service.import_iherb_product(url, current_user)
+    product_svc = ProductService(db)
+    message, msg_type = await product_svc.import_iherb_product(url, current_user)
     return redirect_admin(tab, message=message, message_type=msg_type)

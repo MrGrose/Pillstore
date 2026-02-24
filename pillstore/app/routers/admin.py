@@ -444,11 +444,8 @@ async def create_user(
     current_user: User = Depends(get_current_seller),
 ):
     user_service = UserService(db)
-    user = await user_service.create_admin_user(email, password, role)
-    if isinstance(user, tuple):
-        error_url, status_code = user
-        return RedirectResponse(error_url, status_code=status_code)
-    return redirect_admin(tab, message=f"Пользователь {user} создан", message_type="success")
+    message = await user_service.create_admin_user(email, password, role)
+    return redirect_admin(tab, message=message, message_type="success")
 
 
 @router.get("/users/{user_id}/edit", response_class=HTMLResponse)
@@ -490,11 +487,8 @@ async def update_user(
     current_user: User = Depends(get_current_seller),
 ):
     user_service = UserService(db)
-    user = await user_service.update_admin_user(user_id, email, password, role)
-    if isinstance(user, tuple):
-        error_url, status_code = user
-        return RedirectResponse(error_url, status_code=status_code)
-    return redirect_admin(tab, message=f"Пользователь {user} обновлен", message_type="success")
+    message = await user_service.update_admin_user(user_id, email, password, role)
+    return redirect_admin(tab, message=message, message_type="success")
 
 
 @router.post("/users/{user_id}/delete", response_class=HTMLResponse)
@@ -505,8 +499,5 @@ async def delete_user(
     current_user: User = Depends(get_current_seller),
 ):
     user_service = UserService(db)
-    result = await user_service.delete_admin_user(user_id)
-    if isinstance(result, tuple):
-        error_url, status_code = result
-        return RedirectResponse(error_url, status_code=status_code)
-    return redirect_admin(tab, message=result, message_type="success")
+    message = await user_service.delete_admin_user(user_id)
+    return redirect_admin(tab, message=message, message_type="success")
