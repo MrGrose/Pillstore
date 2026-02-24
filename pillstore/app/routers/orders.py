@@ -1,14 +1,10 @@
 from fastapi import APIRouter, Depends, Form, Request, status
 from fastapi.responses import HTMLResponse, RedirectResponse
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import templates
 from app.core.deps import get_db
 from app.core.security import get_current_user
-from app.db_crud.order_crud import CrudOrder
-from app.models.orders import Order
-from app.models.products import Product
 from app.models.users import User as UserModel
 from app.services.cart import get_cart_count
 from app.services.cart_service import CartService
@@ -65,37 +61,11 @@ async def checkout_order(
             },
             status_code=400,
         )
-    cart_svc = CartService(db)
-    cart_items, total = await cart_svc.get_cart_page(current_user, ordered=False)
-    if not cart_items:
+    order_svc = OrderService(db)
+    checkout_data = await order_svc.prepare_checkout(current_user, contact_phone)
+    if not checkout_data:
         return RedirectResponse("/orders/cart", status_code=303)
-    order_crud = CrudOrder(db, Order)
-    product_ids = [item.product_id for item in cart_items]
-    reserved_map = await order_crud.get_pending_reserved_map(product_ids)
-    items_data = []
-    for item in cart_items:
-        if not item.product or not item.product.is_active:
-            continue
-        reserved = reserved_map.get(item.product_id, 0)
-        available = (item.product.stock or 0) - reserved
-        if available < item.quantity:
-            continue
-        unit_cost = getattr(item.product, "cost", None) or 0
-        items_data.append({
-            "product_id": item.product_id,
-            "name": item.product.name,
-            "quantity": item.quantity,
-            "unit_price": float(item.product.price),
-            "unit_cost": float(unit_cost),
-        })
-    if not items_data:
-        return RedirectResponse("/orders/cart", status_code=303)
-    request.session["checkout"] = {
-        "items": items_data,
-        "total": float(total),
-        "contact_phone": contact_phone.strip(),
-        "personal_data_consent": True,
-    }
+    request.session["checkout"] = checkout_data
     return RedirectResponse("/orders/payment", status_code=status.HTTP_303_SEE_OTHER)
 
 
@@ -252,12 +222,9 @@ async def order_page(
     cart_count: int = Depends(get_cart_count),
 ):
     order_svc = OrderService(db)
+    product_svc = ProductService(db)
     order, is_admin = await order_svc.get_order_for_user(order_id, current_user)
-    available_products = (
-        await db.scalars(
-            select(Product).where(Product.stock > 0).order_by(Product.name)
-        )
-    ).all()
+    available_products = await product_svc.get_available_products_for_order()
     return templates.TemplateResponse(
         "/order/order_detail.html",
         {
@@ -279,11 +246,9 @@ async def add_to_cart_api(
     db: AsyncSession = Depends(get_db),
     current_user: UserModel = Depends(get_current_user),
 ):
-    product_svc = ProductService(db)
     cart_svc = CartService(db)
-    product = await product_svc.crud.get_product_active(product_id)
-    final_qty = await cart_svc.cart_update_api(
-        current_user.id, product_id, quantity, product, add_mode=True
+    final_qty = await cart_svc.add_or_set_cart_item(
+        current_user.id, product_id, quantity, add_mode=True
     )
     return {"quantity": final_qty}
 
@@ -295,11 +260,9 @@ async def set_cart_quantity_api(
     db: AsyncSession = Depends(get_db),
     current_user: UserModel = Depends(get_current_user),
 ):
-    product_svc = ProductService(db)
     cart_svc = CartService(db)
-    product = await product_svc.crud.get_product_active(product_id)
-    final_qty = await cart_svc.cart_update_api(
-        current_user.id, product_id, quantity, product, add_mode=False
+    final_qty = await cart_svc.add_or_set_cart_item(
+        current_user.id, product_id, quantity, add_mode=False
     )
     return {"quantity": final_qty}
 

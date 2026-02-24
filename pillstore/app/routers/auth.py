@@ -2,7 +2,6 @@ from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.auth_utils import create_access_token
 from app.core.config import settings, templates
 from app.core.deps import get_db
 from app.services.user_service import UserService
@@ -71,9 +70,8 @@ async def register(
         return templates.TemplateResponse(
             "auth/register.html", {"request": request, "errors": errors, "email": email}
         )
-    user = await user_svc.register_user(email, password, role)
-    access_token = create_access_token(
-        {"sub": user.email, "role": user.role, "id": user.id}
+    _, access_token = await user_svc.register_user_and_issue_token(
+        email, password, role
     )
     response = RedirectResponse("/products?msg=registered", status_code=303)
     response.set_cookie(

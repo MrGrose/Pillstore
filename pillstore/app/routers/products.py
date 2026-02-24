@@ -77,6 +77,6 @@ async def product_detail(
 
 @router.get("/api/stock/{product_id}")
 async def get_stock(product_id: int, db: AsyncSession = Depends(get_db)):
-    product_svc = ProductService(db).crud
-    product_stock = await product_svc.get_by_id(product_id)
-    return {"stock": product_stock or 0}
+    product_svc = ProductService(db)
+    stock = await product_svc.get_product_stock(product_id)
+    return {"stock": stock}

@@ -90,6 +90,18 @@ class CartService:
         items = await self.crud.get_cart_items(user_id, ordered=False)
         return sum(item.quantity for item in items)
 
+    async def add_or_set_cart_item(
+        self,
+        user_id: int,
+        product_id: int,
+        quantity: int,
+        add_mode: bool = False,
+    ) -> int:
+        product = await self.product_crud.get_product_active(product_id)
+        return await self.cart_update_api(
+            user_id, product_id, quantity, product, add_mode=add_mode
+        )
+
     async def cart_update_api(
         self,
         user_id: int,

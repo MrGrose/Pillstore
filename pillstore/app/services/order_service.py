@@ -26,21 +26,21 @@ class OrderService:
         self.product_crud = CrudProduct(session=session, model=Product)
         self.batch_crud = CrudBatch(session)
 
-    async def get_checkout_order(
+    def _build_items_data_from_cart(
         self,
-        current_user,
-        contact_phone: str | None = None,
-        personal_data_consent: bool = False,
-    ) -> int:
-        cart_items = await self.cart_crud.get_cart_items(current_user.id)
-        if not cart_items:
-            raise CartNotFoundError(current_user.id)
-
+        cart_items: list,
+        reserved_map: dict[int, int] | None = None,
+    ) -> tuple[list[dict], Decimal]:
         items_data = []
         total = Decimal("0")
         for item in cart_items:
             if not item.product or not item.product.is_active:
                 continue
+            if reserved_map is not None:
+                reserved = reserved_map.get(item.product_id, 0)
+                available = (item.product.stock or 0) - reserved
+                if available < item.quantity:
+                    continue
             unit_cost = getattr(item.product, "cost", None) or 0
             items_data.append({
                 "product_id": item.product_id,
@@ -50,10 +50,38 @@ class OrderService:
                 "unit_cost": float(unit_cost),
             })
             total += item.quantity * item.product.price
+        return items_data, total
 
+    async def prepare_checkout(
+        self, current_user: UserModel, contact_phone: str
+    ) -> dict | None:
+        cart_items = await self.cart_crud.get_cart_items(current_user.id, ordered=False)
+        if not cart_items:
+            return None
+        product_ids = [item.product_id for item in cart_items]
+        reserved_map = await self.order_crud.get_pending_reserved_map(product_ids)
+        items_data, total = self._build_items_data_from_cart(cart_items, reserved_map)
+        if not items_data:
+            return None
+        return {
+            "items": items_data,
+            "total": float(total),
+            "contact_phone": contact_phone.strip(),
+            "personal_data_consent": True,
+        }
+
+    async def get_checkout_order(
+        self,
+        current_user,
+        contact_phone: str | None = None,
+        personal_data_consent: bool = False,
+    ) -> int:
+        cart_items = await self.cart_crud.get_cart_items(current_user.id)
+        if not cart_items:
+            raise CartNotFoundError(current_user.id)
+        items_data, total = self._build_items_data_from_cart(cart_items, reserved_map=None)
         if not items_data:
             raise CartNotFoundError(current_user.id)
-
         checkout_data = {
             "items": items_data,
             "total": float(total),

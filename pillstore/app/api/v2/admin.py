@@ -18,24 +18,13 @@ from app.schemas.product import (
     ProductCreate,
     ProductSchema,
     ProductUpdate,
+    product_to_schema,
 )
 from app.schemas.order import OrderSchema
 from app.services.admin_service import AdminService
 from app.services.user_service import UserService
 
 admin_router = APIRouter(prefix="/api/v2", tags=["API v2 Admin"])
-
-
-def _product_to_schema(p) -> ProductSchema:
-    """Преобразование ORM Product в ProductSchema (image_url может быть пустым)."""
-    return ProductSchema(
-        id=p.id,
-        name=p.name,
-        brand=p.brand or "",
-        price=p.price,
-        image_url=p.image_url or "",
-        stock=p.stock,
-    )
 
 
 @admin_router.get("/admin/stats", response_model=dict)
@@ -179,7 +168,7 @@ async def api_admin_get_products(
         active_only=active_only, page=page, page_size=page_size
     )
     return AdminProductsPaginatedResponse(
-        items=[_product_to_schema(p) for p in raw["items"]],
+        items=[product_to_schema(p) for p in raw["items"]],
         total=raw["total"],
         page=raw["page"],
         page_size=raw["page_size"],

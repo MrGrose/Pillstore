@@ -17,6 +17,17 @@ class ProductSchema(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+def product_to_schema(p) -> ProductSchema:
+    return ProductSchema(
+        id=p.id,
+        name=p.name,
+        brand=p.brand or "",
+        price=p.price,
+        image_url=p.image_url or "",
+        stock=p.stock,
+    )
+
+
 class ProductDetailSchema(ProductSchema):
     description: str | None = None
 

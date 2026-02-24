@@ -28,7 +28,7 @@ async def check_email(
 ):
     """Проверка наличия пользователя по email (для бота)."""
     user_svc = UserService(db)
-    user = await user_svc.user_crud.get_user_by_email(email.strip())
+    user = await user_svc.get_user_by_email_optional(email.strip())
     return {"exists": user is not None}
 
 
@@ -39,7 +39,7 @@ async def link_telegram(
 ):
     """Привязать Telegram к пользователю по email (для бота после проверки email)."""
     user_svc = UserService(db)
-    user = await user_svc.user_crud.get_user_by_email(body.email.strip())
+    user = await user_svc.get_user_by_email_optional(body.email.strip())
     if not user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Пользователь не найден")
     await user_svc.link_telegram(user.id, body.telegram_id)

@@ -73,8 +73,7 @@ async def admin_page(
             )
         )
         dashboard_stats["reserved_product_id"] = reserved_product_id
-        p = await admin_svc.product_crud.get_by_id(reserved_product_id)
-        reserved_product_name = p.name if p else None
+        reserved_product_name = await admin_svc.get_product_name(reserved_product_id)
     dashboard_data = await admin_svc.get_dashboard_data(period)
     dashboard_data["trend_json"] = json.dumps(dashboard_data["trend"])
     product_ids_expiry_soon = await admin_svc.get_product_ids_expiring_soon()
@@ -175,7 +174,7 @@ async def edit_product_form(
 ):
     category_svc = CategoryService(db)
     admin_svc = AdminService(db)
-    product = await admin_svc.product_crud.get_by_id_with_categories(product_id)
+    product = await admin_svc.get_product_with_categories_for_edit(product_id)
     categories = await category_svc.get_all_categories()
     batches = await admin_svc.get_batches_for_product(product_id)
     product_description = await formatted_description(product) if product else {}
@@ -326,7 +325,6 @@ async def admin_product_update(
     msg, msg_type = await admin_svc.update_product_admin(
         product_id, data, category_ids, image
     )
-    await db.commit()
     return redirect_admin(tab, message=msg, message_type=msg_type)
 
 

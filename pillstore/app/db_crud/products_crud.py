@@ -284,6 +284,16 @@ class CrudProduct(CRUDBase):
         result = await self.session.scalar(stmt)
         return result or 0
 
+    async def get_available_for_order(self) -> list:
+        stmt = (
+            select(self.model)
+            .where(self.model.is_active.is_(True))
+            .where(self._available_gt_zero())
+            .order_by(self.model.name)
+        )
+        result = await self.session.scalars(stmt)
+        return list(result.all())
+
     async def inactive_product(self, product_id: int) -> Product:
         product = await self.get_by_id(product_id)
         product.is_active = False

@@ -7,7 +7,6 @@ from app.core.deps import get_db
 from app.core.security import get_current_user
 from app.models.users import User
 from app.services.cart import get_cart_count
-from app.services.cart_service import CartService
 from app.services.favorites_service import FavoritesService
 from app.services.profile_service import ProfileService
 
@@ -46,12 +45,7 @@ async def profile_favorites_page(
     cart_count: int = Depends(get_cart_count),
 ):
     fav_svc = FavoritesService(db)
-    items = await fav_svc.list_for_user(current_user.id)
-    cart_svc = CartService(db)
-    cart_items = await cart_svc.crud.get_cart_items(current_user.id, False)
-    cart_qty_by_product = {item.product_id: item.quantity for item in cart_items}
-    for fav in items:
-        fav.product.cart_qty = cart_qty_by_product.get(fav.product.id, 0)
+    items = await fav_svc.list_for_user_with_cart_quantities(current_user.id)
 
     return templates.TemplateResponse(
         "/profile/favorites.html",

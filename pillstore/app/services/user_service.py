@@ -55,9 +55,7 @@ class UserService:
         user = await self.user_crud.check_user_email(email)
         if not user or not verify_password(password, user.hashed_password):
             raise BusinessError("Авторизация", "Неверный email или пароль")
-        return create_access_token(
-            {"sub": user.email, "role": user.role, "id": user.id}
-        )
+        return self._token_for_user(user)
 
     async def register_user(self, email: str, password: str, role: str) -> User:
         hashed_pw = hash_password(password)
@@ -67,6 +65,12 @@ class UserService:
         user_dict = {"email": email, "hashed_password": hashed_pw, "role": role}
         user = await self.user_crud.create(user_dict)
         return user
+
+    async def register_user_and_issue_token(
+        self, email: str, password: str, role: str
+    ) -> tuple[User, str]:
+        user = await self.register_user(email, password, role)
+        return user, self._token_for_user(user)
 
     async def validate_register_data(self, email: str, password: str) -> dict[str, str]:
         errors = await self._validate_base_data(
@@ -114,6 +118,11 @@ class UserService:
     def _is_valid_password(self, password: str) -> bool:
         return bool(password and len(password) >= 6)
 
+    def _token_for_user(self, user: User) -> str:
+        return create_access_token(
+            {"sub": user.email, "role": user.role, "id": user.id}
+        )
+
     async def reset_password(
         self, email: str, new_password: str, confirm_password: str
     ) -> dict:
@@ -133,14 +142,10 @@ class UserService:
         hashed_password = hash_password(new_password)
         await self.user_crud.update(user, {"hashed_password": hashed_password})
 
-        access_token = create_access_token(
-            {"sub": user.email, "role": user.role, "id": user.id}
-        )
-
         return {
             "success": True,
             "message": "Пароль успешно изменен",
-            "access_token": access_token,
+            "access_token": self._token_for_user(user),
             "user": user,
         }
 
@@ -209,6 +214,9 @@ class UserService:
         if not user:
             raise ValueError("Пользователь не найден")
         return user
+
+    async def get_user_by_email_optional(self, email: str) -> User | None:
+        return await self.user_crud.check_user_email(email)
 
     async def link_telegram(self, user_id: int, telegram_id: int) -> None:
         await self.user_crud.clear_telegram_id(telegram_id)

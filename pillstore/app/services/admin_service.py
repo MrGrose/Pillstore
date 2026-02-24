@@ -134,6 +134,7 @@ class AdminService:
 
         new_categories = await self.category_crud.get_by_ids(category_ids)
         product.categories = new_categories
+        await self.session.commit()
 
         return f"ID {product.id} Товар {product.name} обновлен", "success"
 
@@ -249,6 +250,15 @@ class AdminService:
 
     async def get_product_by_id(self, product_id: int) -> Product | None:
         return await self.product_crud.get_by_id(product_id)
+
+    async def get_product_name(self, product_id: int) -> str | None:
+        product = await self.product_crud.get_by_id(product_id)
+        return product.name if product else None
+
+    async def get_product_with_categories_for_edit(
+        self, product_id: int
+    ) -> Product | None:
+        return await self.product_crud.get_by_id_with_categories(product_id)
 
     async def get_batches_for_product(self, product_id: int) -> list:
         batches = await self.batch_crud.get_batches_by_product(
