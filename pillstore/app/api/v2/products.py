@@ -8,9 +8,8 @@ from app.schemas.product import (ProductCreateAPI, ProductDetailSchema,
                                  ProductSchema, product_to_schema,
                                  ProductStockResponse, ProductUpdateAPI)
 from app.services.product_service import ProductService
-from fastapi import (APIRouter, Depends, File, HTTPException, Query,
-                     UploadFile, status)
-from sqlalchemy import select
+from fastapi import (APIRouter, Depends, File, HTTPException, Query, UploadFile,
+                     status)
 from sqlalchemy.ext.asyncio import AsyncSession
 
 product_router = APIRouter(prefix="/api/v2", tags=["API v2 Products"])
@@ -170,14 +169,8 @@ async def import_products(
     import_data: ProductImportList,
     db: AsyncSession = Depends(get_db),
     current_user: UserModel = Depends(get_current_user_import),
-    bypass_auth: bool = Query(False),
 ):
-    """Импорт товаров из JSON."""
-    if bypass_auth:
-        result = await db.scalar(select(UserModel).where(UserModel.id == 1))
-        if not result:
-            raise HTTPException(status.HTTP_404_NOT_FOUND, "Админ не найден")
-        current_user = result
+    """Импорт товаров из JSON (только для авторизованного пользователя)."""
     product_svc = ProductService(db)
     return await product_svc.import_products_from_list(
         import_data, current_user.id

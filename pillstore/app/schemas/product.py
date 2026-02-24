@@ -103,11 +103,12 @@ class ProductImport(BaseModel):
     price: Decimal
     url: str
     images: str | None = None
-    stock: int
+    stock: int = 0
     mpn: str | None = None
     category_path: list[str]
     description_left: str | None = None
     description_right: str | None = None
+    is_active: bool = True
 
 
 class ProductImportList(BaseModel):

@@ -4,7 +4,6 @@ import os
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.v2.products import import_products
 from app.core.auth_utils import hash_password
 from app.core.logger import logger
 from app.db_crud.batch_crud import CrudBatch
@@ -12,6 +11,7 @@ from app.db_crud.user_crud import CrudUser
 from app.models.products import Product
 from app.models.users import User as UserModel
 from app.schemas.product import ProductImportList
+from app.services.product_service import ProductService
 
 json_path = "/app/app/test_data/products.json"
 
@@ -41,7 +41,8 @@ async def seed_admin_and_products(db: AsyncSession):
         with open(json_path, "r", encoding="utf-8") as f:
             import_data = ProductImportList(**json.load(f))
 
-        result = await import_products(import_data, db=db, bypass_auth=True)
+        product_svc = ProductService(db)
+        result = await product_svc.import_products_from_list(import_data, admin.id)
         logger.info(f"✅ Импорт: {result}")
 
         batch_crud = CrudBatch(db)
