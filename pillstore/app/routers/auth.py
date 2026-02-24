@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, Form, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings, templates
@@ -8,6 +8,17 @@ from app.services.user_service import UserService
 
 
 auth_router = APIRouter(prefix="/auth")
+
+
+def set_auth_cookie(response: Response, access_token: str) -> None:
+    response.set_cookie(
+        "access_token",
+        access_token,
+        httponly=True,
+        max_age=settings.MAX_AGE,
+        secure=(settings.ENV == "production"),
+        samesite="lax",
+    )
 
 
 @auth_router.get("/", response_class=HTMLResponse)
@@ -30,14 +41,7 @@ async def login(
         )
     access_token = await user_svc.authenticate_user(email, password)
     response = RedirectResponse("/products", status_code=303)
-    response.set_cookie(
-        "access_token",
-        access_token,
-        httponly=True,
-        max_age=settings.MAX_AGE,
-        secure=(settings.ENV == "production"),
-        samesite="lax",
-    )
+    set_auth_cookie(response, access_token)
     return response
 
 
@@ -74,14 +78,7 @@ async def register(
         email, password, role
     )
     response = RedirectResponse("/products?msg=registered", status_code=303)
-    response.set_cookie(
-        "access_token",
-        access_token,
-        httponly=True,
-        max_age=settings.MAX_AGE,
-        secure=(settings.ENV == "production"),
-        samesite="lax",
-    )
+    set_auth_cookie(response, access_token)
     return response
 
 
@@ -121,13 +118,6 @@ async def simple_reset_password(
             "email": email,
         },
     )
-    response.set_cookie(
-        "access_token",
-        result["access_token"],
-        httponly=True,
-        max_age=settings.MAX_AGE,
-        secure=(settings.ENV == "production"),
-        samesite="lax",
-    )
+    set_auth_cookie(response, result["access_token"])
     response.headers["Refresh"] = "3; url=/products"
     return response
