@@ -13,12 +13,11 @@ class CRUDBase(Generic[ModelType]):
         self.model = model
         self.session = session
 
-    async def get_by_id(self, id: int):
+    async def get_by_id(self, id: int) -> ModelType | None:
         db_result = await self.session.scalars(
             select(self.model).where(self.model.id == id)
         )
-        result = db_result.first()
-        return result
+        return db_result.first()
 
     async def get_all(self, flag):
         db_result_active = await self.session.scalars(
@@ -44,6 +43,8 @@ class CRUDBase(Generic[ModelType]):
 
     async def delete(self, id: int):
         obj = await self.get_by_id(id)
+        if obj is None:
+            raise ValueError(f"{self.model.__name__} c id={id} не найден")
         await self.session.delete(obj)
         await self.session.commit()
         return obj

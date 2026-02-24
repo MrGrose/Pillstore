@@ -12,7 +12,7 @@ class CrudOrder(CRUDBase):
         self.model = model
         self.session = session
 
-    async def get_order_with_items(self, id: int) -> Order:
+    async def get_order_with_items(self, id: int) -> Order | None:
         stmt = (
             select(self.model)
             .options(
@@ -32,7 +32,7 @@ class CrudOrder(CRUDBase):
         total = result.scalar() or Decimal("0")
         order.total_amount = total
 
-    async def get_order_item_detailed(self, order_id: int, item_id: int):
+    async def get_order_item_detailed(self, order_id: int, item_id: int) -> OrderItem | None:
         return await self.session.scalar(
             select(OrderItem)
             .options(selectinload(OrderItem.product), selectinload(OrderItem.order))

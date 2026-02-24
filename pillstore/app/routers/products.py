@@ -20,7 +20,7 @@ async def products_page(
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
     search_product: str | None = Query(None),
-    category_id: int = Query(None),
+    category_id: int | None = Query(None),
     db: AsyncSession = Depends(get_db),
     current_user: User | None = Depends(get_current_user_optional),
 ):

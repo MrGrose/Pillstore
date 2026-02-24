@@ -70,7 +70,7 @@ class ProductService:
         product = await self.crud.get_by_id(product_id)
         if not product:
             raise ProductNotFoundError(product_id)
-        reserved = await self.crud.get_pending_reserved(product_id)
+        reserved = await self.order_crud.get_pending_reserved(product_id)
         available = (product.stock or 0) - reserved
         return {
             "product_id": product.id,
@@ -110,7 +110,7 @@ class ProductService:
         product = await self.crud.get_by_id(product_id)
         if not product:
             raise ProductNotFoundError(product_id)
-        reserved = await self.crud.get_pending_reserved(product_id)
+        reserved = await self.order_crud.get_pending_reserved(product_id)
         product.available_stock = (product.stock or 0) - reserved
         if user:
             await self.cart_qty_for_product(product_id, user, product)
